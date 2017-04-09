@@ -27,5 +27,5 @@ You can use --help for help.
 ## Issues and to-do
 - Can't download multiple files at the time.
 - Can't put multiple link in a download que
-- Can only be used on Unix file systems due to '/' in path. ('\' is not supported)
+- Can only be used on Unix file systems due to '/' in path. ('\\' is not supported)
 
