@@ -9,13 +9,16 @@ Suitable for use and downloading file on remote PC
 
 
 ## Quick-guide for use: 
-The script takes 3 mandatory arguments: Login credentials (email and password) and FileJoker link for the wanted file. 
+The script takes 3 mandatory arguments: Login credentials (email and password) and one or more FileJoker link for wanted file(s). 
 The script also take 1 optional argument: Relative path to save the wanted file
 
 - -e [string]: Login email
 - -p [string]: Login password
 - -l [string]: FileJoker link
+- -f [file]: Text file with FileJoker links (one per line)
 - -path [string]: Relative path to save the wanted file. Must be an already created folder. Default: Same folder as the script is in
+
+OBS: You must use minimum -l or -f. You can use both, if you like.
 
 You can use --help for help. 
 
@@ -25,7 +28,6 @@ You can use --help for help.
 
 
 ## Issues and to-do
-- Can't download multiple files at the time.
-- Can't put multiple link in a download que
+- Can't download multiple files simultaneously.
 - Can only be used on Unix file systems due to '/' in path. ('\\' is not supported)
 
