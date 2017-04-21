@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
 
 
-def login(email, pwd, url, path):
+def download(email, pwd, url, path):
     s = requests.Session()
     s.post('https://filejoker.net/login',
            data={'email': email,
@@ -16,7 +16,12 @@ def login(email, pwd, url, path):
                  'password': pwd,
                  'rand': '',
                  'redirect': ''})
-    values = find_values(s.get(url).text)
+    page = s.get(url)
+    values = find_values(page.text)
+    size = find_size_of_file(page.text)
+    if not check_for_free_disk_space(path, size):
+        print("Not enough disk space")
+        sys.exit(-1)
     link = find_download_link(s.post(url, data=values).text)
     filename = link[link.rfind("/")+1:]
     r = s.get(link, stream=True)
@@ -30,7 +35,10 @@ def login(email, pwd, url, path):
                     dl += len(chunk)
                     f.write(chunk)
                     done = int(50 * dl / total_length)
-                    sys.stdout.write("\r[%s%s]" % ('=' * done, ' ' * (50-done)))
+                    sys.stdout.write("\r[%s%s] - %d of %d MB (%d%%)" %
+                                     ('=' * done, ' ' * (50-done),
+                                      int(dl/1024/1024),
+                                      int(total_length/1024/1024), done))
                     sys.stdout.flush()
     sys.stdout.write("\n")
 
@@ -40,6 +48,18 @@ def find_download_link(s):
     result = [m.start() for m in re.finditer(goal, s)][0]
     result2 = [m.start() for m in re.finditer('" class', s[result:])][0]
     return s[result+len(goal)+10:result+result2]
+
+
+def find_size_of_file(s):
+    size = defaultdict(dict)
+    result = [m.start() for m in re.finditer('<div class="name-size">', s)][0]
+    result2 = [m.start() for m in re.finditer('</div>', s[result:])][0]
+    sub_string = s[result:(result+result2)]
+    temp = sub_string[sub_string.find("<small>(")+8:
+                      sub_string.find(")</small>")]
+    size['size'] = float(temp[:-2].strip())
+    size['size_value'] = temp[-2:].strip()
+    return size
 
 
 def find_values(s):
@@ -55,6 +75,18 @@ def find_values(s):
                           value_index+7]
         values[name] = value
     return values
+
+
+def check_for_free_disk_space(path, size, ratio=0.6):
+    disk = os.statvfs(path)
+    totalAvailSpace = float(disk.f_bsize*disk.f_bfree)
+    rules = {'b': totalAvailSpace,
+             'kb': totalAvailSpace/1024,
+             'mb': totalAvailSpace/1024/1024,
+             'gb': totalAvailSpace/1024/1024/1024}
+    if size['size'] / rules[size['size_value'].lower()] <= ratio:
+        return True
+    return False
 
 
 if __name__ == '__main__':
@@ -93,4 +125,4 @@ if __name__ == '__main__':
     else:
         save_path = base_path
 
-    login(args.email, args.pwd, args.link, save_path)
+    download(args.email, args.pwd, args.link, save_path)
