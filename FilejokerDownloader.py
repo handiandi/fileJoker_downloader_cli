@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
 
 
-def download(email, pwd, url, path):
+def login_and_download(email, pwd, urls, path):
     s = requests.Session()
     s.post('https://filejoker.net/login',
            data={'email': email,
@@ -16,15 +16,27 @@ def download(email, pwd, url, path):
                  'password': pwd,
                  'rand': '',
                  'redirect': ''})
-    page = s.get(url)
-    values = find_values(page.text)
-    size = find_size_of_file(page.text)
-    if not check_for_free_disk_space(path, size):
-        print("Not enough disk space")
-        sys.exit(-1)
-    link = find_download_link(s.post(url, data=values).text)
-    filename = link[link.rfind("/")+1:]
-    r = s.get(link, stream=True)
+    for count, url in enumerate(urls):
+        page = s.get(url)
+        values = find_values(page.text)
+        size = find_size_of_file(page.text)
+        if not check_for_free_disk_space(path, size):
+            print("Not enough disk space")
+            sys.exit(-1)
+        link = find_download_link(s.post(url, data=values).text)
+        filename = link[link.rfind("/")+1:]
+        if len(urls) > 1:
+            print("Downloading file '{}' - ({} of {} files in que)".
+                  format(filename,
+                         count+1,
+                         len(urls)))
+        else:
+            print("Downloading file '{}'".format(filename))
+        download(s, link, filename, path)
+
+
+def download(session, url, filename, path):
+    r = session.get(url, stream=True)
     total_length = r.headers.get('content-length')
     total_length = int(total_length)
     dl = 0
@@ -38,7 +50,8 @@ def download(email, pwd, url, path):
                     sys.stdout.write("\r[%s%s] - %d of %d MB (%d%%)" %
                                      ('=' * done, ' ' * (50-done),
                                       int(dl/1024/1024),
-                                      int(total_length/1024/1024), done))
+                                      int(total_length/1024/1024),
+                                      done*2))
                     sys.stdout.flush()
     sys.stdout.write("\n")
 
@@ -100,17 +113,26 @@ if __name__ == '__main__':
                             dest="link", help="FileJoker download link")
     arg_parser.add_argument("-path", "--path", metavar="STRING",
                             dest="path", help="Relative path for saving file (an already created directory)")
+    arg_parser.add_argument("-f", "--files", metavar="FILE",
+                            dest="files", help="A text file with FileJoker links (one per line)")
     base_path = os.path.realpath(__file__)
     base_path = base_path[:base_path.rfind("/")+1]
     save_path_relative = None
     save_path = None
     args = arg_parser.parse_args()
+    links = []
     if args.email is None:
         arg_parser.error("Missing email for login")
     if args.pwd is None:
         arg_parser.error("Missing password for login")
-    if args.link is None:
-        arg_parser.error("Missing download link for login")
+    if args.link is None and args.files is None:
+        arg_parser.error("Missing download link (or links)")
+    if args.files:
+        with open(args.files, 'r') as f:
+            links = f.read().splitlines()
+            links = list(set(links))
+    if args.link:
+        links.append(args.link)
     if args.path is not None:
         if args.path[0] == "/":
             save_path = base_path + args.path[1:]
@@ -125,4 +147,4 @@ if __name__ == '__main__':
     else:
         save_path = base_path
 
-    download(args.email, args.pwd, args.link, save_path)
+    login_and_download(args.email, args.pwd, links, save_path)
