@@ -23,7 +23,11 @@ def login_and_download(email, pwd, urls, path):
         if not check_for_free_disk_space(path, size):
             print("Not enough disk space")
             sys.exit(-1)
-        link = find_download_link(s.post(url, data=values).text)
+        html = s.post(url, data=values).text
+        if reach_download_limit(html):
+            print("You have reached your download limit. You can't download any more files right now. Try again later")
+            sys.exit()
+        link = find_download_link(html)
         filename = link[link.rfind("/")+1:]
         if len(urls) > 1:
             print("Downloading file '{}' - ({} of {} files in que)".
@@ -33,6 +37,13 @@ def login_and_download(email, pwd, urls, path):
         else:
             print("Downloading file '{}'".format(filename))
         download(s, link, filename, path)
+
+
+def reach_download_limit(s):
+    goal = 'You have reached your download limit:'
+    if [m.start() for m in re.finditer(goal, s)]:
+        return True
+    return False
 
 
 def download(session, url, filename, path):
