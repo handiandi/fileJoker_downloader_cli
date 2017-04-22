@@ -151,8 +151,10 @@ if __name__ == '__main__':
             save_path = base_path + args.path
         if not os.path.exists(save_path):
             print("Path doesn't exist: {}".format(save_path))
+            sys.exit()
         elif not os.path.isdir(save_path):
             print("Path is not a directory!: {}".format(save_path))
+            sys.exit()
         if save_path[-1] != "/":
             save_path += "/"
     else:
