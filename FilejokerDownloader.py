@@ -7,6 +7,7 @@ from collections import defaultdict
 from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
 import multiprocessing as mp
+import time
 
 
 def login_and_download(email, pwd, urls, file_w_urls, path):
@@ -38,7 +39,7 @@ def login_and_download(email, pwd, urls, file_w_urls, path):
         else:
             print("Downloading file '{}' [{}]".format(filename, values['id']))
         download(s, link, filename, path)
-        p = mp.Process(name="deleteID+"+count, target=delete_id_from_file,
+        p = mp.Process(name="deleteID+"+str(count), target=delete_id_from_file,
                        args=(file_w_urls, values['id']))
         p.start()
 
@@ -118,7 +119,6 @@ def check_for_free_disk_space(path, size, ratio=0.6):
 
 
 def delete_id_from_file(file, fj_id):
-    print("Starting: {}".format(mp.current_process().name))
     with open(file, 'r+') as f:
         d = f.read().splitlines()
         ids = [item[item.rfind('/')+1:] if item[-1] != '/'
@@ -128,7 +128,6 @@ def delete_id_from_file(file, fj_id):
         [f.write("https://filejoker.net/"+i+"\n") if i != fj_id
          else None for i in ids]
         f.truncate()
-    print("Exiting: {}".format(mp.current_process().name))
 
 
 if __name__ == '__main__':
@@ -154,7 +153,7 @@ if __name__ == '__main__':
         arg_parser.error("Missing email for login")
     if args.pwd is None:
         arg_parser.error("Missing password for login")
-    if args.link is None and args.files is None:
+    if args.link is None and args.file is None:
         arg_parser.error("Missing download link (or links)")
     if args.file:
         with open(args.file, 'r') as f:
