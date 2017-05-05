@@ -6,9 +6,10 @@ import re
 from collections import defaultdict
 from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
+import multiprocessing as mp
 
 
-def login_and_download(email, pwd, urls, path):
+def login_and_download(email, pwd, urls, file_w_urls, path):
     s = requests.Session()
     s.post('https://filejoker.net/login',
            data={'email': email,
@@ -30,13 +31,16 @@ def login_and_download(email, pwd, urls, path):
         link = find_download_link(html)
         filename = link[link.rfind("/")+1:]
         if len(urls) > 1:
-            print("Downloading file '{}' - ({} of {} files in que)".
-                  format(filename,
+            print("Downloading file '{}' [{}]- ({} of {} files in que)".
+                  format(filename, values['id'],
                          count+1,
                          len(urls)))
         else:
-            print("Downloading file '{}'".format(filename))
+            print("Downloading file '{}' [{}]".format(filename, values['id']))
         download(s, link, filename, path)
+        p = mp.Process(name="deleteID+"+count, target=delete_id_from_file,
+                       args=(file_w_urls, values['id']))
+        p.start()
 
 
 def reach_download_limit(s):
@@ -113,6 +117,20 @@ def check_for_free_disk_space(path, size, ratio=0.6):
     return False
 
 
+def delete_id_from_file(file, fj_id):
+    print("Starting: {}".format(mp.current_process().name))
+    with open(file, 'r+') as f:
+        d = f.read().splitlines()
+        ids = [item[item.rfind('/')+1:] if item[-1] != '/'
+               else item[item[:-1].rfind('/')+1:-1]
+               for item in d]
+        f.seek(0)
+        [f.write("https://filejoker.net/"+i+"\n") if i != fj_id
+         else None for i in ids]
+        f.truncate()
+    print("Exiting: {}".format(mp.current_process().name))
+
+
 if __name__ == '__main__':
     arg_parser = ArgumentParser(description='CLI for premium download for FileJoker.net',
                                 formatter_class=RawTextHelpFormatter)
@@ -124,8 +142,8 @@ if __name__ == '__main__':
                             dest="link", help="FileJoker download link")
     arg_parser.add_argument("-path", "--path", metavar="STRING",
                             dest="path", help="Relative path for saving file (an already created directory)")
-    arg_parser.add_argument("-f", "--files", metavar="FILE",
-                            dest="files", help="A text file with FileJoker links (one per line)")
+    arg_parser.add_argument("-f", "--file", metavar="FILE",
+                            dest="file", help="A text file with FileJoker links (one per line)")
     base_path = os.path.realpath(__file__)
     base_path = base_path[:base_path.rfind("/")+1]
     save_path_relative = None
@@ -138,8 +156,8 @@ if __name__ == '__main__':
         arg_parser.error("Missing password for login")
     if args.link is None and args.files is None:
         arg_parser.error("Missing download link (or links)")
-    if args.files:
-        with open(args.files, 'r') as f:
+    if args.file:
+        with open(args.file, 'r') as f:
             links = f.read().splitlines()
             links = list(set(links))
     if args.link:
@@ -160,4 +178,4 @@ if __name__ == '__main__':
     else:
         save_path = base_path
 
-    login_and_download(args.email, args.pwd, links, save_path)
+    login_and_download(args.email, args.pwd, links, args.file, save_path)
