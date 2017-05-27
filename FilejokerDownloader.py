@@ -39,9 +39,10 @@ def login_and_download(email, pwd, urls, file_w_urls, path):
         else:
             print("Downloading file '{}' [{}]".format(filename, values['id']))
         download(s, link, filename, path)
-        p = mp.Process(name="deleteID+"+str(count), target=delete_id_from_file,
-                       args=(file_w_urls, values['id']))
-        p.start()
+        if(file_w_urls):
+            p = mp.Process(name="deleteID+"+str(count), target=delete_id_from_file,
+                           args=(file_w_urls, values['id']))
+            p.start()
 
 
 def reach_download_limit(s):
