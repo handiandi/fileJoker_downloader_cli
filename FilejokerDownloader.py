@@ -97,8 +97,14 @@ def find_values(s):
     values = defaultdict(dict)
     for i, index in enumerate(result):
         substring = s[index:] if i == len(result)-1 else s[index:result[i+1]]
-        value_index = [m.start() for m in re.finditer('value="', substring)][0]
-        name_index = [m.start() for m in re.finditer('name="', substring)][0]
+        value_index = [m.start() for m in re.finditer('value="', substring)]
+        if len(value_index) == 0:
+            continue
+        value_index = value_index[0]
+        name_index = [m.start() for m in re.finditer('name="', substring)]
+        if len(name_index) == 0:
+            continue
+        name_index = name_index[0]
         name = substring[name_index+6:substring[name_index+6:].find('"') +
                          name_index+6]
         value = substring[value_index+7:substring[value_index+7:].find('"') +
