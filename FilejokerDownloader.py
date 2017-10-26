@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 import sys
 import os
+import ctypes
+import platform
 import requests
-import re
+import urllib.request
 from collections import defaultdict
 from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
+import re
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 import multiprocessing as mp
-import time
 
 
-def login_and_download(email, pwd, urls, file_w_urls, path):
+def login_requests(email, pwd):
     s = requests.Session()
     s.post('https://filejoker.net/login',
            data={'email': email,
@@ -18,38 +23,69 @@ def login_and_download(email, pwd, urls, file_w_urls, path):
                  'password': pwd,
                  'rand': '',
                  'redirect': ''})
+    return s
+
+
+def login_selenium(email, pwd):
+    dcap = dict(DesiredCapabilities.PHANTOMJS)
+    dcap['phantomjs.page.settings.userAgent'] = (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36")
+    driver = webdriver.PhantomJS(desired_capabilities=dcap, service_args=[
+                                 '--ignore-ssl-errors=true', '--ssl-protocol=any', '--web-security=false'])
+    driver.get('https://filejoker.net/login')
+    login_email_box = None
+    login_pwd_box = None
+    login_button = None
+    try:
+        login_email_box = driver.find_element(By.NAME, 'email')
+        login_pwd_box = driver.find_element(By.NAME, 'password')
+        login_button = driver.find_element(By.XPATH, '//*[@id="loginbtn"]')
+    except Exception as e:
+        sys.exit("Couldn't find login elements")
+
+    if login_email_box is not None and login_pwd_box is not None and login_button is not None:
+        try:
+            login_email_box.send_keys(email)
+            login_pwd_box.send_keys(pwd)
+            login_button.click()
+        except Exception as e:
+            sys.exit("Couldn't login")
+    return driver
+
+
+def login_and_download(email, pwd, urls, names, file_w_urls, path):
+    s = login_requests(email, pwd)
+    driver = login_selenium(email, pwd)
+
     for count, url in enumerate(urls):
-        page = s.get(url)
-        values = find_values(page.text)
-        size = find_size_of_file(page.text)
-        if not check_for_free_disk_space(path, size):
+        url_id = url[url.rfind('/')+1:]
+        driver.get(url)
+        if not check_for_free_disk_space(path, find_size_of_file(driver)):
             print("Not enough disk space")
             sys.exit(-1)
-        html = s.post(url, data=values).text
-        if reach_download_limit(html):
-            print("You have reached your download limit. You can't download any more files right now. Try again later")
-            sys.exit()
-        link = find_download_link(html)
-        filename = link[link.rfind("/")+1:]
-        if len(urls) > 1:
-            print("Downloading file '{}' [{}]- ({} of {} files in que)".
-                  format(filename, values['id'],
-                         count+1,
-                         len(urls)))
-        else:
-            print("Downloading file '{}' [{}]".format(filename, values['id']))
+        link = find_download_link(driver)
+        if link is None:
+            print("Couldn't find the download-link for {}".format(url))
+            continue
+        filename = urllib.request.unquote(link[link.rfind("/")+1:])
+        new_filename = None
+        if url in names:
+            new_filename = names[url]+filename[filename.rfind('.'):].strip()
+        new_filename_text = "(renamed to '{}')".format(new_filename) \
+            if new_filename else ""
+        que_text = " - ({} of {} files in que)".format(count+1, len(urls)) \
+            if len(urls) > 1 else ""
+
+        print("Downloading file '{}' {} [{}]{}".format(
+             filename, new_filename_text, url_id, que_text))
         download(s, link, filename, path)
+        if new_filename:
+            os.rename(path+filename, path+new_filename)
         if(file_w_urls):
-            p = mp.Process(name="deleteID+"+str(count), target=delete_id_from_file,
-                           args=(file_w_urls, values['id']))
+            p = mp.Process(name="deleteID+"+str(count),
+                           target=delete_id_from_file,
+                           args=(file_w_urls, url_id))
             p.start()
-
-
-def reach_download_limit(s):
-    goal = 'You have reached your download limit:'
-    if [m.start() for m in re.finditer(goal, s)]:
-        return True
-    return False
 
 
 def download(session, url, filename, path):
@@ -73,49 +109,74 @@ def download(session, url, filename, path):
     sys.stdout.write("\n")
 
 
-def find_download_link(s):
-    goal = '<div class="premium-download">'
-    result = [m.start() for m in re.finditer(goal, s)][0]
-    result2 = [m.start() for m in re.finditer('" class', s[result:])][0]
-    return s[result+len(goal)+10:result+result2]
+def delete_id_from_file(file, fj_id):
+    lines = []
+    with open(file, 'r+') as f:
+        for line in f:
+            lines.append(line.strip())
+        f.seek(0)
+        for item in lines:
+            idd = item[item.rfind('/')+1:item.rfind(
+                '-->')].strip() if item.rfind(
+                '-->') > -1 else item[item.rfind('/')+1:].strip()
+            if fj_id != idd or item.startswith('#'):
+                f.write(item+"\n")
+        f.truncate()
 
 
-def find_size_of_file(s):
+def reach_download_limit(s):
+    goal = 'You have reached your download limit:'
+    if [m.start() for m in re.finditer(goal, s)]:
+        return True
+    return False
+
+
+def find_download_link(driver):
+    get_download_link_button = driver.find_element(
+        By.XPATH, '//*[@id="download"]/div/div[2]/form/button')
+    get_download_link_button.click()
+
+    if reach_download_limit(driver.page_source):
+        print("You have reached your download limit. You can't download any more files right now. Try again later")
+        sys.exit()
+
+    link = None
+    try:
+        link = driver.find_element(
+            By.XPATH, '//*[@id="download"]/div[1]/div[2]/a')
+    except Exception:
+        print("Couldn't find download link. Probably it's a file you can stream")
+        print("Trying to find the link in another way")
+    if link is None:
+        try:
+            link = driver.find_element(
+                By.XPATH, '//*[@id="main"]/center/a')  # When streaming video
+        except Exception:
+            return None
+    return link.get_attribute('href')
+
+
+def find_size_of_file(driver):
+    file_size_tex_elem = driver.find_element(
+        By.XPATH, '//*[@id="download"]/div/div[1]/small')
+    file_size_text = file_size_tex_elem.get_attribute('innerHTML')
     size = defaultdict(dict)
-    result = [m.start() for m in re.finditer('<div class="name-size">', s)][0]
-    result2 = [m.start() for m in re.finditer('</div>', s[result:])][0]
-    sub_string = s[result:(result+result2)]
-    temp = sub_string[sub_string.find("<small>(")+8:
-                      sub_string.find(")</small>")]
-    size['size'] = float(temp[:-2].strip())
-    size['size_value'] = temp[-2:].strip()
+    size['size'] = float(file_size_text[1:file_size_text.rfind(' ')].strip())
+    size['size_value'] = file_size_text[file_size_text.rfind(' ')+1:-1].strip()
     return size
 
 
-def find_values(s):
-    result = [m.start() for m in re.finditer('<input', s)]
-    values = defaultdict(dict)
-    for i, index in enumerate(result):
-        substring = s[index:] if i == len(result)-1 else s[index:result[i+1]]
-        value_index = [m.start() for m in re.finditer('value="', substring)]
-        if len(value_index) == 0:
-            continue
-        value_index = value_index[0]
-        name_index = [m.start() for m in re.finditer('name="', substring)]
-        if len(name_index) == 0:
-            continue
-        name_index = name_index[0]
-        name = substring[name_index+6:substring[name_index+6:].find('"') +
-                         name_index+6]
-        value = substring[value_index+7:substring[value_index+7:].find('"') +
-                          value_index+7]
-        values[name] = value
-    return values
-
-
 def check_for_free_disk_space(path, size, ratio=0.6):
-    disk = os.statvfs(path)
-    totalAvailSpace = float(disk.f_bsize*disk.f_bfree)
+    totalAvailSpace = None
+    if platform.system() == 'Windows':
+        free_bytes = ctypes.c_ulonglong(0)
+        ctypes.windll.kernel32.GetDiskFreeSpaceExW(
+            ctypes.c_wchar_p(path), None, None, ctypes.pointer(free_bytes))
+        totalAvailSpace = free_bytes.value
+    else:
+        st = os.statvfs(path)
+        totalAvailSpace = st.f_bavail * st.f_frsize
+
     rules = {'b': totalAvailSpace,
              'kb': totalAvailSpace/1024,
              'mb': totalAvailSpace/1024/1024,
@@ -125,16 +186,20 @@ def check_for_free_disk_space(path, size, ratio=0.6):
     return False
 
 
-def delete_id_from_file(file, fj_id):
-    with open(file, 'r+') as f:
-        d = f.read().splitlines()
-        ids = [item[item.rfind('/')+1:] if item[-1] != '/'
-               else item[item[:-1].rfind('/')+1:-1]
-               for item in d]
-        f.seek(0)
-        [f.write("https://filejoker.net/"+i+"\n") if i != fj_id
-         else None for i in ids]
-        f.truncate()
+def read_file(file):
+    links = []
+    lines = []
+    names = {}
+    with open(file, 'r') as f:
+        for line in f:
+            if not line.startswith("#"):
+                lines.append(line.strip())
+    for line in lines:
+        result = line.split('-->')
+        if len(result) == 2:
+            names[result[0].strip()] = result[1].strip()
+        links.append(result[0].strip())
+    return list(set(links)), names
 
 
 if __name__ == '__main__':
@@ -152,7 +217,6 @@ if __name__ == '__main__':
                             dest="file", help="A text file with FileJoker links (one per line)")
     base_path = os.path.realpath(__file__)
     base_path = base_path[:base_path.rfind("/")+1]
-    save_path_relative = None
     save_path = None
     args = arg_parser.parse_args()
     links = []
@@ -163,9 +227,7 @@ if __name__ == '__main__':
     if args.link is None and args.file is None:
         arg_parser.error("Missing download link (or links)")
     if args.file:
-        with open(args.file, 'r') as f:
-            links = f.read().splitlines()
-            links = list(set(links))
+        links, names = read_file(args.file)
     if args.link:
         links.append(args.link)
     if args.path is not None:
@@ -184,4 +246,5 @@ if __name__ == '__main__':
     else:
         save_path = base_path
 
-    login_and_download(args.email, args.pwd, links, args.file, save_path)
+    login_and_download(args.email, args.pwd, links,
+                       names, args.file, save_path)
