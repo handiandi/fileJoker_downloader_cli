@@ -24,9 +24,9 @@ OBS: You must use minimum -l or -f. You can use both, if you like.
 
 You can use --help for help. 
 
-##### About the file flag (-f)
-The file should contain one FileJoker link per line. 
-More, you can comment out lines (links) if the script should ignore them. You this with '#'
+#### About the file flag (-f)
+The file should contain one FileJoker link per line. <br/>
+More, you can comment out lines (links) if the script should ignore them. You do this with '#' <br/>
 You can also specify a new name for a file. By using '--> [new name]', the script will rename the file to '[new name]' after the download is finished. 
 
 Example:
