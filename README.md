@@ -44,6 +44,7 @@ In the example above, the following is happening:
 
 ## Dependencies
 - Requests
+- Selenium (and PhantomJS installed - see [this guide](phantomjs_guide.md))
 
 
 ## Issues and to-do
