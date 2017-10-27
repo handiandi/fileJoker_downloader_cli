@@ -220,6 +220,7 @@ if __name__ == '__main__':
     save_path = None
     args = arg_parser.parse_args()
     links = []
+    names = []
     if args.email is None:
         arg_parser.error("Missing email for login")
     if args.pwd is None:
