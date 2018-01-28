@@ -1,6 +1,8 @@
 # A CLI for downloading files from FileJoker.net
 A CLI for downloading files from FileJoker.net (Premium - you need a paid account).
-Suitable for use and downloading file on remote PC
+Suitable for use and downloading file on remote PC<br><br>
+
+**Note/OBS:** FileJoker has implented an anti-robot feature ("Are you a human"/captcha). Due to this, this script won't work - unfortunately. But there is a work-around: If you login and download one file manually (hence pass the captcha), then you can use the script for the other files (do not know how many until captcha is reactivated). 
 
 
 ## Installation
