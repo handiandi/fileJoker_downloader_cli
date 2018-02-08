@@ -16,10 +16,24 @@ import multiprocessing as mp
 import concurrent.futures
 import time
 
+def read_file(file):
+    links = []
+    lines = []
+    names = {}
+    with open(file, 'r') as f:
+        for line in f:
+            if not line.startswith("#"):
+                lines.append(line.strip())
+    for line in lines:
+        result = line.split('-->')
+        if len(result) == 2:
+            names[result[0].strip()] = result[1].strip()
+        links.append(result[0].strip())
+    return list(set(links)), names
 
 class FileJoker():
 
-    def __init__(self, email, pwd, urls, names, file_w_urls, path, thread):
+    def __init__(self, email, pwd, urls, names, file_w_urls, path, thread, count_total):
         self.s = self.login_requests(email, pwd)
         self.driver = self.login_selenium(email, pwd)
         self.urls = urls
@@ -28,6 +42,7 @@ class FileJoker():
         self.thread = thread
         self.count = 0
         self.file_w_urls = file_w_urls
+        self.count_total = count_total
         self.Process_executor(urls)
 
     def Process_executor(self, url):
@@ -50,7 +65,7 @@ class FileJoker():
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
         new_filename_text = "(renamed to '{}')".format(new_filename) \
             if new_filename else ""
-        que_text = " - ({} of {} files in que)".format(count+1, len(self.urls)) \
+        que_text = " - ({} of {} files in que)".format(count+1, self.count_total) \
             if len(self.urls) > 1 else ""
         
         print("Downloading file '{}' {} [{}]{}".format(
@@ -205,22 +220,6 @@ class FileJoker():
         return False
 
 
-def read_file(file):
-    links = []
-    lines = []
-    names = {}
-    with open(file, 'r') as f:
-        for line in f:
-            if not line.startswith("#"):
-                lines.append(line.strip())
-    for line in lines:
-        result = line.split('-->')
-        if len(result) == 2:
-            names[result[0].strip()] = result[1].strip()
-        links.append(result[0].strip())
-    return list(set(links)), names
-
-
 if __name__ == '__main__':
     arg_parser = ArgumentParser(description='CLI for premium download for FileJoker.net',
                                 formatter_class=RawTextHelpFormatter)
@@ -272,8 +271,10 @@ if __name__ == '__main__':
     else:
         save_path = base_path
 
+    count_total = len(read_file(file_w_urls))
+
     executor = concurrent.futures.ProcessPoolExecutor(int(args.thread))
-    future = [executor.submit(FileJoker, args.email, args.pwd, url, names, args.file, save_path, args.thread) for e, url in enumerate(links)]
+    future = [executor.submit(FileJoker, args.email, args.pwd, url, names, args.file, save_path, args.thread, count_total) for e, url in enumerate(links)]
     print([results.result() for results in concurrent.futures.as_completed(future)])
 
     ####                                                            ####
