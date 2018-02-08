@@ -33,7 +33,7 @@ def read_file(file):
 
 class FileJoker():
 
-    def __init__(self, email, pwd, urls, names, file_w_urls, path, thread, count_total):
+    def __init__(self, email, pwd, urls, names, file_w_urls, path, thread, count_total, thread_use):
         self.s = self.login_requests(email, pwd)
         self.driver = self.login_selenium(email, pwd)
         self.urls = urls
@@ -43,22 +43,28 @@ class FileJoker():
         self.count = 0
         self.file_w_urls = file_w_urls
         self.count_total = count_total
-        self.Process_executor(urls)
+        self.thread_use = thread_use
+        process = self.Process_executor(urls)
+
+        # for don't break the loop force return
+        if process is False:
+           print("stop")
 
     def Process_executor(self, url):
         count = self.count
         url_id = url[url.rfind('/')+1:]
         self.driver.get(url)
         if not self.check_for_free_disk_space(self.path, self.find_size_of_file()):
-            print("Not enough disk space")
-            #sys.exit(-1)
+            print("\rNot enough disk space")
+            sys.exit(-1)
             #return False
         self.link = self.find_download_link()
         
         if self.link is None:
-            print("Couldn't find the download-link for {}".format(url))
+            sys.stdout.flush()
+            print("\033[2K\rCouldn't find the download-link for {}".format(url))
             self.driver.quit()
-
+        
         self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
         new_filename = None
         if url in self.names:
@@ -121,8 +127,9 @@ class FileJoker():
                 print("Couldn't login")
                 #sys.exit("Couldn't login")
         return driver
-  
+
     def download(self, session, url, filename, path):
+        print("\033[{}A".format(self.thread_use))
         r = session.get(url, stream=True)
         total_length = r.headers.get('content-length')
         total_length = int(total_length)
@@ -140,8 +147,8 @@ class FileJoker():
                                           int(total_length/1024/1024),
                                           done*2))
                         sys.stdout.flush()
+        print("\033[<{}>B".format(self.thread_use))
         sys.stdout.write("\n")
-
 
     def delete_id_from_file(self, file, fj_id):
         lines = []
@@ -157,7 +164,6 @@ class FileJoker():
                     f.write(item+"\n")
             f.truncate()
 
-
     def reach_download_limit(self, s):
         goal = 'There is not enough traffic available to download this file.'
         if [m.start() for m in re.finditer(goal, s)]:
@@ -170,23 +176,26 @@ class FileJoker():
         get_download_link_button.click()
 
         if self.reach_download_limit(self.driver.page_source):
-            print("You have reached your download limit. You can't download any more files right now. Try again later")
+            print("\033[3K\033[{}A\rYou have reached your download limit. You can't download any more files right now. Try again later".format(2))
             #sys.exit()
+            return None
 
         link = None
         try:
             link = self.driver.find_element(
                 By.XPATH, '//*[@id="download"]/div[1]/div[2]/a')
         except Exception:
-            print("Couldn't find download link. Probably it's a file you can stream")
-            print("Trying to find the link in another way")
+            print("\033[2K\033[{}A\rCouldn't find download link. Probably it's a file you can stream".format(4))
+            print("\033[3K\033[{}A\rTrying to find the link in another way".format(5))
             return None
+
         if link is None:
             try:
                 link = self.driver.find_element(
                     By.XPATH, '//*[@id="main"]/center/a')  # When streaming video
             except Exception:
                 return None
+
         return link.get_attribute('href')
 
 
@@ -218,6 +227,28 @@ class FileJoker():
         if size['size'] / rules[size['size_value'].lower()] <= ratio:
             return True
         return False
+
+def enumerated(lists, thread):
+    list_0 = []
+    list_1 = []
+    count = 0
+    for i in lists:
+        if count == int(thread):
+            count = 0
+            list_0.append(count)
+            list_1.append(i)
+            count = count + 1
+        else:
+            list_0.append(count)
+            list_1.append(i)
+            count = count + 1
+    return list_0, list_1
+
+
+def main(thread, email, pwd, links, names, file, save_path, count_total, counts):
+    executor = concurrent.futures.ProcessPoolExecutor(int(thread))
+    future = [executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e) for e, url in zip(counts, links)]
+    print([results.result() for results in concurrent.futures.as_completed(future)])
 
 
 if __name__ == '__main__':
@@ -272,10 +303,12 @@ if __name__ == '__main__':
         save_path = base_path
 
     count_total = len(links)
+    counts, links  = enumerated(links, args.thread)
 
-    executor = concurrent.futures.ProcessPoolExecutor(int(args.thread))
-    future = [executor.submit(FileJoker, args.email, args.pwd, url, names, args.file, save_path, args.thread, count_total) for e, url in enumerate(links)]
-    print([results.result() for results in concurrent.futures.as_completed(future)])
+    main(args.thread, args.email, 
+         args.pwd, links, names, 
+         args.file, save_path, 
+         count_total, counts)
 
     ####                                                            ####
     ##  if you are idea for resolve Multi line print your are welcome ##
