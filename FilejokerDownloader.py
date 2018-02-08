@@ -28,7 +28,7 @@ class FileJoker():
         self.thread = thread
         self.count = 0
         self.file_w_urls = file_w_urls
-        self.Process_executor(url)
+        self.Process_executor(urls)
 
     def Process_executor(self, url):
         count = self.count
@@ -36,13 +36,13 @@ class FileJoker():
         self.driver.get(url)
         if not self.check_for_free_disk_space(self.path, self.find_size_of_file()):
             print("Not enough disk space")
-            sys.exit(-1)
-            return False
+            #sys.exit(-1)
+            #return False
         self.link = self.find_download_link()
         
         if self.link is None:
             print("Couldn't find the download-link for {}".format(url))
-            return False
+            self.driver.quit()
 
         self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
         new_filename = None
@@ -57,7 +57,7 @@ class FileJoker():
              self.filename, new_filename_text, url_id, que_text))
 
         self.download(self.s, self.link, self.filename, self.path)
-        self.driver.close()
+        self.driver.quit()
 
         if new_filename:
             os.rename(self.path+self.filename, self.path+new_filename)
@@ -94,7 +94,8 @@ class FileJoker():
             login_pwd_box = driver.find_element(By.NAME, 'password')
             login_button = driver.find_element(By.XPATH, '//*[@id="loginbtn"]')
         except Exception as e:
-            sys.exit("Couldn't find login elements")
+            print("Couldn't find login elements")
+            #sys.exit("Couldn't find login elements")
 
         if login_email_box is not None and login_pwd_box is not None and login_button is not None:
             try:
@@ -102,7 +103,8 @@ class FileJoker():
                 login_pwd_box.send_keys(pwd)
                 login_button.click()
             except Exception as e:
-                sys.exit("Couldn't login")
+                print("Couldn't login")
+                #sys.exit("Couldn't login")
         return driver
   
     def download(self, session, url, filename, path):
@@ -154,7 +156,7 @@ class FileJoker():
 
         if self.reach_download_limit(self.driver.page_source):
             print("You have reached your download limit. You can't download any more files right now. Try again later")
-            sys.exit()
+            #sys.exit()
 
         link = None
         try:
@@ -163,6 +165,7 @@ class FileJoker():
         except Exception:
             print("Couldn't find download link. Probably it's a file you can stream")
             print("Trying to find the link in another way")
+            return None
         if link is None:
             try:
                 link = self.driver.find_element(
@@ -260,17 +263,15 @@ if __name__ == '__main__':
             save_path = base_path + args.path
         if not os.path.exists(save_path):
             print("Path doesn't exist: {}".format(save_path))
-            sys.exit()
+            #sys.exit()
         elif not os.path.isdir(save_path):
             print("Path is not a directory!: {}".format(save_path))
-            sys.exit()
+            #sys.exit()
         if save_path[-1] != "/":
             save_path += "/"
     else:
         save_path = base_path
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=int(args.thread)) as executor:
-        for e, url in enumerate(links):
-            call_back = executor.submit(FileJoker, args.email, args.pwd, url, names, args.file, save_path, args.thread)
-            if call_back.result() == False:
-                pass
+    executor = concurrent.futures.ProcessPoolExecutor(3)
+    future = [executor.submit(FileJoker, args.email, args.pwd, url, names, args.file, save_path, args.thread) for e, url in enumerate(links)]
+    print([results.result() for results in concurrent.futures.as_completed(future)])
