@@ -156,7 +156,8 @@ class FileJoker():
               "down_direct":down_direct.attrs["value"]})
 
         if self.reach_download_limit(data.text):
-            print("\033[1K\033[{}A\r\033[KYou have reached your download limit. You can't download any more files right now. Try again later\r".format(2))
+            print("\033[1K\033[{}A\r\033[KYou have reached your download limit",
+                  "You can't download any more files right now. Try again later\r".format(2))
             #sys.exit()
             return None
         
@@ -233,7 +234,11 @@ def main(thread, email, pwd, links, names, file, save_path, count_total, counts)
         FileJoker(email, pwd, url, names, file, save_path, thread, count_total, e)'''
     with concurrent.futures.ProcessPoolExecutor(max_workers=int(thread)) as executor:
         try:
-            for future in concurrent.futures.as_completed([executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e) for e, url in zip(counts, links)], timeout=100):
+            for future in concurrent.futures.as_completed([executor.submit(FileJoker, email, pwd, 
+                                                                           url, names, file, save_path,
+                                                                           thread, count_total, e) \
+                                                                           for e, url in zip(counts, links)],
+                                                                                             timeout=100):
                 print(future.result(timeout=100))
         except concurrent.futures._base.TimeoutError:
             print("This took to long...")
