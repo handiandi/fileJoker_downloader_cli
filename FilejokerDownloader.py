@@ -55,26 +55,25 @@ class FileJoker():
         url_id = url[url.rfind('/')+1:]
         self.driver.get(url)
         if not self.check_for_free_disk_space(self.path, self.find_size_of_file()):
-            print("\rNot enough disk space")
+            print("\033[2K\r\033[KNot enough disk space")
             sys.exit(-1)
             #return False
         self.link = self.find_download_link()
         
         if self.link is None:
-            sys.stdout.flush()
-            print("\033[2K\rCouldn't find the download-link for {}".format(url))
+            print("\033[2K\r\033[KCouldn't find the download-link for {}\r".format(url))
             self.driver.quit()
-        
+
         self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
         new_filename = None
         if url in self.names:
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
-        new_filename_text = "(renamed to '{}')".format(new_filename) \
+        new_filename_text = "\033[2K\r\033[K(renamed to '{}')".format(new_filename) \
             if new_filename else ""
         que_text = " - ({} of {} files in que)".format(count+1, self.count_total) \
             if len(self.urls) > 1 else ""
-        
-        print("Downloading file '{}' {} [{}]{}".format(
+    
+        print("\033[2K\rDownloading file '{}' {} [{}]{}".format(
              self.filename, new_filename_text, url_id, que_text))
 
         self.download(self.s, self.link, self.filename, self.path)
@@ -89,6 +88,7 @@ class FileJoker():
                            args=(file_w_urls, url_id))
             p.start()
         self.count = self.count+1
+        return True
 
     def login_requests(self, email, pwd):
         s = requests.Session()
@@ -115,7 +115,7 @@ class FileJoker():
             login_pwd_box = driver.find_element(By.NAME, 'password')
             login_button = driver.find_element(By.XPATH, '//*[@id="loginbtn"]')
         except Exception as e:
-            print("Couldn't find login elements")
+            print("\033[2K\r\033[KCouldn't find login elements")
             #sys.exit("Couldn't find login elements")
 
         if login_email_box is not None and login_pwd_box is not None and login_button is not None:
@@ -124,12 +124,12 @@ class FileJoker():
                 login_pwd_box.send_keys(pwd)
                 login_button.click()
             except Exception as e:
-                print("Couldn't login")
+                print("\033[2K\r\033[KCouldn't login")
                 #sys.exit("Couldn't login")
         return driver
 
     def download(self, session, url, filename, path):
-        print("\033[{}A".format(self.thread_use))
+        print("\033[{}A\033[K".format(self.thread_use))
         r = session.get(url, stream=True)
         total_length = r.headers.get('content-length')
         total_length = int(total_length)
@@ -147,7 +147,7 @@ class FileJoker():
                                           int(total_length/1024/1024),
                                           done*2))
                         sys.stdout.flush()
-        print("\033[<{}>B".format(self.thread_use))
+        print("\033[<{}>B\033[K".format(self.thread_use))
         sys.stdout.write("\n")
 
     def delete_id_from_file(self, file, fj_id):
@@ -176,7 +176,7 @@ class FileJoker():
         get_download_link_button.click()
 
         if self.reach_download_limit(self.driver.page_source):
-            print("\033[3K\033[{}A\rYou have reached your download limit. You can't download any more files right now. Try again later".format(2))
+            print("\033[1K\033[{}A\r\033[KYou have reached your download limit. You can't download any more files right now. Try again later\r".format(2))
             #sys.exit()
             return None
 
@@ -185,8 +185,8 @@ class FileJoker():
             link = self.driver.find_element(
                 By.XPATH, '//*[@id="download"]/div[1]/div[2]/a')
         except Exception:
-            print("\033[2K\033[{}A\rCouldn't find download link. Probably it's a file you can stream".format(4))
-            print("\033[3K\033[{}A\rTrying to find the link in another way".format(5))
+            print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream".format(2))
+            print("\033[2K\033[{}A\r\033[KTrying to find the link in another way".format(2))
             return None
 
         if link is None:
@@ -228,6 +228,9 @@ class FileJoker():
             return True
         return False
 
+    def __call__(self):
+        pass
+
 def enumerated(lists, thread):
     list_0 = []
     list_1 = []
@@ -245,11 +248,21 @@ def enumerated(lists, thread):
     return list_0, list_1
 
 
-def main(thread, email, pwd, links, names, file, save_path, count_total, counts):
-    executor = concurrent.futures.ProcessPoolExecutor(int(thread))
-    future = [executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e) for e, url in zip(counts, links)]
-    print([results.result() for results in concurrent.futures.as_completed(future)])
+def stop_process_pool(executor):
+    for pid, processes in executor._processes.items():
+        processes.terminate()
+    executor.shutdown()
 
+def main(thread, email, pwd, links, names, file, save_path, count_total, counts):
+    with concurrent.futures.ProcessPoolExecutor(max_workers=int(thread)) as executor:
+        try:
+            for future in concurrent.futures.as_completed([executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e) for e, url in zip(counts, links)], timeout=100):
+                print(future.result(timeout=100))
+        except concurrent.futures._base.TimeoutError:
+            print("This took to long...")
+            stop_process_pool(executor)
+        except concurrent.futures.process.BrokenProcessPool:
+            pass
 
 if __name__ == '__main__':
     arg_parser = ArgumentParser(description='CLI for premium download for FileJoker.net',
