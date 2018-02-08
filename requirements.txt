@@ -4,4 +4,5 @@ idna==2.6
 requests==2.18.4
 selenium==3.6.0
 urllib3==1.22
-futures==3.0.5 
+futures==3.0.5
+beautifulsoup4==4.1.3
