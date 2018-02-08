@@ -68,13 +68,13 @@ class FileJoker():
         new_filename = None
         if url in self.names:
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
-        new_filename_text = "\033[2K\r\033[K(renamed to '{}')".format(new_filename) \
+        new_filename_text = "\033[2K\033[{}A\r\033[K(renamed to '{}')".format(self.thread_use, new_filename) \
             if new_filename else ""
         que_text = " - ({} of {} files in que)".format(count+1, self.count_total) \
             if len(self.urls) > 1 else ""
     
-        print("\033[2K\rDownloading file '{}' {} [{}]{}".format(
-             self.filename, new_filename_text, url_id, que_text))
+        print("\033[1K\033[{}A\rDownloading file '{}' {} [{}]{}".format(
+              self.thread_use,self.filename, new_filename_text, url_id, que_text))
 
         self.download(self.s, self.link, self.filename, self.path)
         self.driver.quit()
@@ -129,7 +129,6 @@ class FileJoker():
         return driver
 
     def download(self, session, url, filename, path):
-        print("\033[{}A\033[K".format(self.thread_use))
         r = session.get(url, stream=True)
         total_length = r.headers.get('content-length')
         total_length = int(total_length)
@@ -141,13 +140,14 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\r[%s%s] - %d of %d MB (%d%%)" %
+                        sys.stdout.write("\033[1K\033[{}A\033[K\r[%s%s] - %d of %d MB (%d%%)" %
+                                          self.thread_use,
                                          ('=' * done, ' ' * (50-done),
                                           int(dl/1024/1024),
                                           int(total_length/1024/1024),
                                           done*2))
                         sys.stdout.flush()
-        print("\033[<{}>B\033[K".format(self.thread_use))
+        print("\033[1K\033[<{}>B\033[K".format(self.thread_use))
         sys.stdout.write("\n")
 
     def delete_id_from_file(self, file, fj_id):
