@@ -13,42 +13,51 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 import multiprocessing as mp
+import concurrent.futures
+import time
 
 
 class FileJoker():
-    def __init__(self, email, pwd, urls, names, file_w_urls, path):
+
+    def __init__(self, email, pwd, urls, names, file_w_urls, path, thread):
         self.s = self.login_requests(email, pwd)
         self.driver = self.login_selenium(email, pwd)
 
-        for count, url in enumerate(urls):
-            url_id = url[url.rfind('/')+1:]
-            self.driver.get(url)
-            if not self.check_for_free_disk_space(path, self.find_size_of_file()):
-                print("Not enough disk space")
-                sys.exit(-1)
-            self.link = self.find_download_link()
-            if self.link is None:
-                print("Couldn't find the download-link for {}".format(url))
-                continue
-            self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
-            new_filename = None
-            if url in names:
-                new_filename = names[url]+filename[filename.rfind('.'):].strip()
-            new_filename_text = "(renamed to '{}')".format(new_filename) \
-                if new_filename else ""
-            que_text = " - ({} of {} files in que)".format(count+1, len(urls)) \
-                if len(urls) > 1 else ""
+        with concurrent.futures.ThreadPoolExecutor(max_workers=int(thread)) as executor:
+            for count, url in enumerate(urls):
+                wait_for = executor.submit(self.Process_executor, url, path)
 
-            print("Downloading file '{}' {} [{}]{}".format(
-                 self.filename, new_filename_text, url_id, que_text))
-            self.download(self.s, self.link, self.filename, path)
-            if new_filename:
-                os.rename(path+filename, path+new_filename)
-            if(file_w_urls):
-                p = mp.Process(name="deleteID+"+str(count),
-                               target=delete_id_from_file,
-                               args=(file_w_urls, url_id))
-                p.start()
+    def Process_executor(self, url, path):
+        url_id = url[url.rfind('/')+1:]
+        self.driver.get(url)
+        if not self.check_for_free_disk_space(path, self.find_size_of_file()):
+            print("Not enough disk space")
+            sys.exit(-1)
+        self.link = self.find_download_link()
+
+        if self.link is None:
+            print("Couldn't find the download-link for {}".format(url))
+            return False
+
+        self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
+        new_filename = None
+        if url in names:
+            new_filename = names[url]+filename[filename.rfind('.'):].strip()
+        new_filename_text = "(renamed to '{}')".format(new_filename) \
+            if new_filename else ""
+        que_text = " - ({} of {} files in que)".format(count+1, len(urls)) \
+            if len(urls) > 1 else ""
+
+        print("Downloading file '{}' {} [{}]{}".format(
+             self.filename, new_filename_text, url_id, que_text))
+        self.download(self.s, self.link, self.filename, path)
+        if new_filename:
+            os.rename(path+filename, path+new_filename)
+        if(file_w_urls):
+            p = mp.Process(name="deleteID+"+str(count),
+                           target=delete_id_from_file,
+                           args=(file_w_urls, url_id))
+            p.start()
 
     def login_requests(self, email, pwd):
         s = requests.Session()
@@ -124,15 +133,15 @@ class FileJoker():
 
 
     def reach_download_limit(self, s):
-        goal = 'You have reached your download limit:'
+        goal = 'There is not enough traffic available to download this file.'
         if [m.start() for m in re.finditer(goal, s)]:
             return True
         return False
 
 
     def find_download_link(self):
-        get_download_link_button = self.driver.find_element(
-            By.XPATH, '//*[@id="download"]/div/div[2]/form/button')
+        time.sleep(0.3)
+        get_download_link_button = self.driver.find_element(By.XPATH, '//*[@id="download"]/div/div[2]/form/button')
         get_download_link_button.click()
 
         if self.reach_download_limit(self.driver.page_source):
@@ -214,6 +223,8 @@ if __name__ == '__main__':
                             dest="path", help="Relative path for saving file (an already created directory)")
     arg_parser.add_argument("-f", "--file", metavar="FILE",
                             dest="file", help="A text file with FileJoker links (one per line)")
+    arg_parser.add_argument("-t", "--thread", metavar="STRING",
+                            dest="thread", help="define number process to download simultaneous.")
     base_path = os.path.realpath(__file__)
     base_path = base_path[:base_path.rfind("/")+1]
     save_path = None
@@ -230,6 +241,9 @@ if __name__ == '__main__':
         links, names = read_file(args.file)
     if args.link:
         links.append(args.link)
+
+    if args.thread is None:
+        args.thread = "1"
 
     if args.path is not None:
         if args.path[0] == "/":
@@ -248,4 +262,4 @@ if __name__ == '__main__':
         save_path = base_path
 
     FileJoker(args.email, args.pwd, links,
-              names, args.file, save_path)
+              names, args.file, save_path, args.thread)
