@@ -26,6 +26,8 @@ class FileJoker():
         with concurrent.futures.ThreadPoolExecutor(max_workers=int(thread)) as executor:
             for count, url in enumerate(urls):
                 wait_for = executor.submit(self.Process_executor, url, path)
+                if wait_for.result() is False:
+                    sys.exit()
 
     def Process_executor(self, url, path):
         url_id = url[url.rfind('/')+1:]
@@ -33,6 +35,7 @@ class FileJoker():
         if not self.check_for_free_disk_space(path, self.find_size_of_file()):
             print("Not enough disk space")
             sys.exit(-1)
+            return False
         self.link = self.find_download_link()
 
         if self.link is None:
