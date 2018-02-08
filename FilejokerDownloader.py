@@ -32,7 +32,7 @@ class FileJoker():
             for e, url in enumerate(urls):
                 call_back = executor.submit(self.Process_executor, url, e)
                 if call_back.result() == False:
-                    sys.exit(-1)
+                    pass
 
     def Process_executor(self, url, count):
         url_id = url[url.rfind('/')+1:]
@@ -148,7 +148,6 @@ class FileJoker():
 
 
     def find_download_link(self):
-        time.sleep(0.3)
         get_download_link_button = self.driver.find_element(By.XPATH, '//*[@id="download"]/div/div[2]/form/button')
         get_download_link_button.click()
 
