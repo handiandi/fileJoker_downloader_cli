@@ -27,15 +27,14 @@ class FileJoker():
         self.names = names
         self.thread = thread
         self.file_w_urls = file_w_urls
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=int(self.thread)) as executor:
             for e, url in enumerate(urls):
-                self.count = 0
-                call_back = executor.submit(self.Process_executor, url)
+                call_back = executor.submit(self.Process_executor, url, e)
                 if call_back.result() == False:
                     sys.exit(-1)
 
-    def Process_executor(self, url):
-        self.count = self.count+1
+    def Process_executor(self, url, count):
         url_id = url[url.rfind('/')+1:]
         self.driver.get(url)
         if not self.check_for_free_disk_space(self.path, self.find_size_of_file()):
@@ -54,7 +53,7 @@ class FileJoker():
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
         new_filename_text = "(renamed to '{}')".format(new_filename) \
             if new_filename else ""
-        que_text = " - ({} of {} files in que)".format(self.count+1, len(self.urls)) \
+        que_text = " - ({} of {} files in que)".format(count+1, len(self.urls)) \
             if len(self.urls) > 1 else ""
 
         print("Downloading file '{}' {} [{}]{}".format(
@@ -63,7 +62,7 @@ class FileJoker():
         if new_filename:
             os.rename(self.path+self.filename, self.path+new_filename)
         if(file_w_urls):
-            p = mp.Process(name="deleteID+"+str(self.count),
+            p = mp.Process(name="deleteID+"+str(count),
                            target=delete_id_from_file,
                            args=(file_w_urls, url_id))
             p.start()
