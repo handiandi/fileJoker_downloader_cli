@@ -22,17 +22,23 @@ class FileJoker():
     def __init__(self, email, pwd, urls, names, file_w_urls, path, thread):
         self.s = self.login_requests(email, pwd)
         self.driver = self.login_selenium(email, pwd)
+        self.urls = urls
+        self.path = path
+        self.names = names
+        self.thread = thread
+        self.file_w_urls = file_w_urls
+        with concurrent.futures.ThreadPoolExecutor(max_workers=int(self.thread)) as executor:
+            for e, url in enumerate(urls):
+                self.count = 0
+                call_back = executor.submit(self.Process_executor, url)
+                if call_back.result() == False:
+                    sys.exit(-1)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=int(thread)) as executor:
-            for count, url in enumerate(urls):
-                wait_for = executor.submit(self.Process_executor, url, path)
-                if wait_for.result() is False:
-                    sys.exit()
-
-    def Process_executor(self, url, path):
+    def Process_executor(self, url):
+        self.count = self.count+1
         url_id = url[url.rfind('/')+1:]
         self.driver.get(url)
-        if not self.check_for_free_disk_space(path, self.find_size_of_file()):
+        if not self.check_for_free_disk_space(self.path, self.find_size_of_file()):
             print("Not enough disk space")
             sys.exit(-1)
             return False
@@ -44,20 +50,20 @@ class FileJoker():
 
         self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
         new_filename = None
-        if url in names:
-            new_filename = names[url]+filename[filename.rfind('.'):].strip()
+        if url in self.names:
+            new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
         new_filename_text = "(renamed to '{}')".format(new_filename) \
             if new_filename else ""
-        que_text = " - ({} of {} files in que)".format(count+1, len(urls)) \
-            if len(urls) > 1 else ""
+        que_text = " - ({} of {} files in que)".format(self.count+1, len(self.urls)) \
+            if len(self.urls) > 1 else ""
 
         print("Downloading file '{}' {} [{}]{}".format(
              self.filename, new_filename_text, url_id, que_text))
         self.download(self.s, self.link, self.filename, path)
         if new_filename:
-            os.rename(path+filename, path+new_filename)
+            os.rename(self.path+self.filename, self.path+new_filename)
         if(file_w_urls):
-            p = mp.Process(name="deleteID+"+str(count),
+            p = mp.Process(name="deleteID+"+str(self.count),
                            target=delete_id_from_file,
                            args=(file_w_urls, url_id))
             p.start()
@@ -264,5 +270,5 @@ if __name__ == '__main__':
     else:
         save_path = base_path
 
-    FileJoker(args.email, args.pwd, links,
-              names, args.file, save_path, args.thread)
+    FileJoker(args.email, args.pwd, links, names,
+              args.file, save_path, args.thread)
