@@ -271,7 +271,7 @@ if __name__ == '__main__':
     else:
         save_path = base_path
 
-    count_total = len(read_file(file_w_urls))
+    count_total = len(links)
 
     executor = concurrent.futures.ProcessPoolExecutor(int(args.thread))
     future = [executor.submit(FileJoker, args.email, args.pwd, url, names, args.file, save_path, args.thread, count_total) for e, url in enumerate(links)]
