@@ -275,3 +275,8 @@ if __name__ == '__main__':
     executor = concurrent.futures.ProcessPoolExecutor(int(args.thread))
     future = [executor.submit(FileJoker, args.email, args.pwd, url, names, args.file, save_path, args.thread) for e, url in enumerate(links)]
     print([results.result() for results in concurrent.futures.as_completed(future)])
+
+    ####                                                            ####
+    ##  if you are idea for resolve Multi line print your are welcome ##
+    ##                          - vBlackOut -         ;)              ##
+    ###                                                             ####
