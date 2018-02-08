@@ -7,9 +7,8 @@ Suitable for use and downloading file on remote PC<br><br>
 
 ## Installation
 1. Clone/download the files from the repository
-2. Download and install PhantomJS version **2.1.1** (or higher) by following [this guide](phantomjs_guide.md).
-3. Install Pipy packages: `pip3 install -r requirements.txt`
-4. Done! :)
+2. Install Pipy packages: `pip3 install -r requirements.txt` or `pip2 install -r requirements.txt` 
+3. Done! :)
 
 
 ## Quick-guide for use: 
@@ -44,13 +43,13 @@ In the example above, the following is happening:
 - Link3 will be ignored.
 
 
-
 ## Dependencies
 - Requests
-- Selenium (and PhantomJS installed - see [this guide](phantomjs_guide.md))
+- BeautifullSoup
 
 
 ## Issues and to-do
-- Can't download multiple files simultaneously.
+- ~~Can't download multiple files simultaneously.~~ (Fix by [@vBlackOut](https://github.com/vBlackOut))
+- ~~No use phantomJS for more speed~~ (Fix by [@vBlackOut](https://github.com/vBlackOut))
 - Can only be used on Unix file systems due to '/' in path. ('\\' is not supported)
 
