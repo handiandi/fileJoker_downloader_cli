@@ -20,6 +20,7 @@ The script also take 1 optional argument: Relative path to save the wanted file
 - -p [string]: Login password
 - -l [string]: FileJoker link
 - -f [file]: Text file with FileJoker links (one per line)
+- -t [thread]: Define number simultaneous download link [default is 1]
 - -path [string]: Relative path to save the wanted file. Must be an already created folder. Default: Same folder as the script is in
 
 OBS: You must use minimum -l or -f. You can use both, if you like.
