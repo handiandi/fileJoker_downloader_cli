@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
+from collections import defaultdict
+from argparse import ArgumentParser
+from argparse import RawTextHelpFormatter
+from bs4 import BeautifulSoup
+import multiprocessing as mp
+import concurrent.futures
 import sys
 import os
 import ctypes
 import platform
 import requests
 import urllib.request
-from collections import defaultdict
-from argparse import ArgumentParser
-from argparse import RawTextHelpFormatter
 import re
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-import multiprocessing as mp
-import concurrent.futures
 import time
 
 def read_file(file):
@@ -35,7 +33,6 @@ class FileJoker():
 
     def __init__(self, email, pwd, urls, names, file_w_urls, path, thread, count_total, thread_use):
         self.s = self.login_requests(email, pwd)
-        self.driver = self.login_selenium(email, pwd)
         self.urls = urls
         self.path = path
         self.names = names
@@ -53,16 +50,15 @@ class FileJoker():
     def Process_executor(self, url):
         count = self.count
         url_id = url[url.rfind('/')+1:]
-        self.driver.get(url)
-        if not self.check_for_free_disk_space(self.path, self.find_size_of_file()):
+        source = self.s.get(url)
+        if not self.check_for_free_disk_space(self.path, self.find_size_of_file(source.text)):
             print("\033[2K\r\033[KNot enough disk space")
             sys.exit(-1)
             #return False
-        self.link = self.find_download_link()
+        self.link = self.find_download_link(source)
         
         if self.link is None:
             print("\033[2K\r\033[KCouldn't find the download-link for {}\r".format(url))
-            self.driver.quit()
 
         self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
         new_filename = None
@@ -77,7 +73,6 @@ class FileJoker():
               self.thread_use,self.filename, new_filename_text, url_id, que_text))
 
         self.download(self.s, self.link, self.filename, self.path)
-        self.driver.quit()
 
         if new_filename:
             os.rename(self.path+self.filename, self.path+new_filename)
@@ -99,34 +94,6 @@ class FileJoker():
                      'rand': '',
                      'redirect': ''})
         return s
-
-    def login_selenium(self, email, pwd):
-        dcap = dict(DesiredCapabilities.PHANTOMJS)
-        dcap['phantomjs.page.settings.userAgent'] = (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36")
-        driver = webdriver.PhantomJS(desired_capabilities=dcap, service_args=[
-                                     '--ignore-ssl-errors=true', '--ssl-protocol=any', '--web-security=false'])
-        driver.get('https://filejoker.net/login')
-        login_email_box = None
-        login_pwd_box = None
-        login_button = None
-        try:
-            login_email_box = driver.find_element(By.NAME, 'email')
-            login_pwd_box = driver.find_element(By.NAME, 'password')
-            login_button = driver.find_element(By.XPATH, '//*[@id="loginbtn"]')
-        except Exception as e:
-            print("\033[2K\r\033[KCouldn't find login elements")
-            #sys.exit("Couldn't find login elements")
-
-        if login_email_box is not None and login_pwd_box is not None and login_button is not None:
-            try:
-                login_email_box.send_keys(email)
-                login_pwd_box.send_keys(pwd)
-                login_button.click()
-            except Exception as e:
-                print("\033[2K\r\033[KCouldn't login")
-                #sys.exit("Couldn't login")
-        return driver
 
     def download(self, session, url, filename, path):
         r = session.get(url, stream=True)
@@ -171,43 +138,52 @@ class FileJoker():
         return False
 
 
-    def find_download_link(self):
-        get_download_link_button = self.driver.find_element(By.XPATH, '//*[@id="download"]/div/div[2]/form/button')
-        get_download_link_button.click()
+    def find_download_link(self, html):
+        soup = BeautifulSoup(html.text, 'lxml')
+        submit = soup.find('form', attrs={"name":u"F1"})
+        op = soup.find('input', attrs={"name":u"op"})
+        ids = soup.find('input', attrs={"name":u"id"})
+        rand = soup.find('input', attrs={"name":u"rand"})
+        referer = soup.find('input', attrs={"name":u"referer"})
+        method_premium = soup.find('input', attrs={"name":u"method_premium"})
+        down_direct = soup.find('input', attrs={"name":u"down_direct"})
 
-        if self.reach_download_limit(self.driver.page_source):
+        data = self.s.post("https://filejoker.net"+submit.attrs["action"], data={"op":op.attrs["value"],
+              "id":ids.attrs["value"],
+              "rand":rand.attrs["value"],
+              "referer":referer.attrs["value"],
+              "method_premium":method_premium.attrs["value"],
+              "down_direct":down_direct.attrs["value"]})
+
+        if self.reach_download_limit(data.text):
             print("\033[1K\033[{}A\r\033[KYou have reached your download limit. You can't download any more files right now. Try again later\r".format(2))
             #sys.exit()
             return None
-
+        
         link = None
         try:
-            link = self.driver.find_element(
-                By.XPATH, '//*[@id="download"]/div[1]/div[2]/a')
+            soup = BeautifulSoup(data.text, 'lxml')
         except Exception:
             print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream".format(2))
             print("\033[2K\033[{}A\r\033[KTrying to find the link in another way".format(2))
             return None
 
-        if link is None:
+        '''if link is None:
             try:
                 link = self.driver.find_element(
                     By.XPATH, '//*[@id="main"]/center/a')  # When streaming video
             except Exception:
-                return None
+                return None'''
 
-        return link.get_attribute('href')
+        return soup.find("a", attrs={"class":"btn btn-green"}).attrs["value"])
 
-
-    def find_size_of_file(self):
-        file_size_tex_elem = self.driver.find_element(
-            By.XPATH, '//*[@id="download"]/div/div[1]/small')
-        file_size_text = file_size_tex_elem.get_attribute('innerHTML')
+    def find_size_of_file(self, html):
+        soup = BeautifulSoup(html, 'lxml')
+        file_size_text = soup.find('small').text
         size = defaultdict(dict)
         size['size'] = float(file_size_text[1:file_size_text.rfind(' ')].strip())
         size['size_value'] = file_size_text[file_size_text.rfind(' ')+1:-1].strip()
         return size
-
 
     def check_for_free_disk_space(self, path, size, ratio=0.6):
         totalAvailSpace = None
@@ -247,13 +223,14 @@ def enumerated(lists, thread):
             count = count + 1
     return list_0, list_1
 
-
 def stop_process_pool(executor):
     for pid, processes in executor._processes.items():
         processes.terminate()
     executor.shutdown()
 
 def main(thread, email, pwd, links, names, file, save_path, count_total, counts):
+    '''for e, url in zip(counts, links):
+        FileJoker(email, pwd, url, names, file, save_path, thread, count_total, e)'''
     with concurrent.futures.ProcessPoolExecutor(max_workers=int(thread)) as executor:
         try:
             for future in concurrent.futures.as_completed([executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e) for e, url in zip(counts, links)], timeout=100):
