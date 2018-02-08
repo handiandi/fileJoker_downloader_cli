@@ -156,8 +156,8 @@ class FileJoker():
               "down_direct":down_direct.attrs["value"]})
 
         if self.reach_download_limit(data.text):
-            print("\033[1K\033[{}A\r\033[KYou have reached your download limit",
-                  "You can't download any more files right now. Try again later\r".format(2))
+            print("\033[1K\033[{}A\r\033[K{}\r".format(2, "You have reached your download limit. " +
+                                                          "You can't download any more files right now. Try again later"))
             #sys.exit()
             return None
         
