@@ -175,7 +175,7 @@ class FileJoker():
             except Exception:
                 return None'''
 
-        return soup.find("a", attrs={"class":"btn btn-green"}).attrs["value"])
+        return soup.find("a", attrs={"class":"btn btn-green"}).attrs["value"]
 
     def find_size_of_file(self, html):
         soup = BeautifulSoup(html, 'lxml')
