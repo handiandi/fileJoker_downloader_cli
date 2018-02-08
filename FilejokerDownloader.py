@@ -26,15 +26,12 @@ class FileJoker():
         self.path = path
         self.names = names
         self.thread = thread
+        self.count = 0
         self.file_w_urls = file_w_urls
+        self.Process_executor(url)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=int(self.thread)) as executor:
-            for e, url in enumerate(urls):
-                call_back = executor.submit(self.Process_executor, url, e)
-                if call_back.result() == False:
-                    pass
-
-    def Process_executor(self, url, count):
+    def Process_executor(self, url):
+        count = self.count
         url_id = url[url.rfind('/')+1:]
         self.driver.get(url)
         if not self.check_for_free_disk_space(self.path, self.find_size_of_file()):
@@ -42,7 +39,7 @@ class FileJoker():
             sys.exit(-1)
             return False
         self.link = self.find_download_link()
-
+        
         if self.link is None:
             print("Couldn't find the download-link for {}".format(url))
             return False
@@ -55,17 +52,22 @@ class FileJoker():
             if new_filename else ""
         que_text = " - ({} of {} files in que)".format(count+1, len(self.urls)) \
             if len(self.urls) > 1 else ""
-
+        
         print("Downloading file '{}' {} [{}]{}".format(
              self.filename, new_filename_text, url_id, que_text))
-        self.download(self.s, self.link, self.filename, path)
+
+        self.download(self.s, self.link, self.filename, self.path)
+        self.driver.close()
+
         if new_filename:
             os.rename(self.path+self.filename, self.path+new_filename)
+
         if(file_w_urls):
             p = mp.Process(name="deleteID+"+str(count),
                            target=delete_id_from_file,
                            args=(file_w_urls, url_id))
             p.start()
+        self.count = self.count+1
 
     def login_requests(self, email, pwd):
         s = requests.Session()
@@ -76,7 +78,6 @@ class FileJoker():
                      'rand': '',
                      'redirect': ''})
         return s
-
 
     def login_selenium(self, email, pwd):
         dcap = dict(DesiredCapabilities.PHANTOMJS)
@@ -268,5 +269,8 @@ if __name__ == '__main__':
     else:
         save_path = base_path
 
-    FileJoker(args.email, args.pwd, links, names,
-              args.file, save_path, args.thread)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(args.thread)) as executor:
+        for e, url in enumerate(links):
+            call_back = executor.submit(FileJoker, args.email, args.pwd, url, names, args.file, save_path, args.thread)
+            if call_back.result() == False:
+                pass
