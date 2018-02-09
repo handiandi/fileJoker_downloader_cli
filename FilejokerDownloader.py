@@ -59,19 +59,19 @@ class FileJoker():
         self.link = self.find_download_link(source)
         
         if self.link is None:
-            print("\033[2K\r\033[KCouldn't find the download-link for {}\r".format(url))
+            print("\033[2K\033[{}A\r\033[KCouldn't find the download-link for {}\r".format(self.thread, url))
 
         self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
         new_filename = None
         if url in self.names:
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
-        new_filename_text = "\033[2K\033[{}A\r\033[K(renamed to '{}')".format(self.thread_use, new_filename) \
+        new_filename_text = "\033[2K\033[{}B\r\033[K(renamed to '{}')".format(2*self.fix_thread_pos(), new_filename) \
             if new_filename else ""
         que_text = " - ({} of {} files in que)".format(count+1, self.count_total) \
             if len(self.urls) > 1 else ""
     
-        print("\033[1K\033[{}A\rDownloading file '{}' {} [{}]{}".format(
-              self.thread_use,self.filename, new_filename_text, url_id, que_text))
+        print("\033[1K\033[{}B\rDownloading file '{}' {} [{}]{}".format(
+              2*self.fix_thread_pos(),self.filename, new_filename_text, url_id, que_text))
 
         self.download(self.s, self.link, self.filename, self.path)
 
@@ -109,13 +109,13 @@ class FileJoker():
                         f.write(chunk)
                         done = int(50 * dl / total_length)
                         sys.stdout.write("\033[1K\033[{}A\033[K\r[%s%s] - %d of %d MB (%d%%)" %
-                                          self.thread_use,
+                                          2*self.fix_thread_pos(),
                                          ('=' * done, ' ' * (50-done),
                                           int(dl/1024/1024),
                                           int(total_length/1024/1024),
                                           done*2))
                         sys.stdout.flush()
-        print("\033[1K\033[<{}>B\033[K".format(self.thread_use))
+        print("\033[1K\033[<{}>B\033[K".format(2*self.fix_thread_pos()))
         sys.stdout.write("\n")
 
     def delete_id_from_file(self, file, fj_id):
@@ -138,6 +138,13 @@ class FileJoker():
             return True
         return False
 
+    def fix_thread_pos(self):
+        if self.thread_use == 0:
+            thread_use = 1
+            return thread_use
+        else:
+            thread_use = self.thread_use+1
+            return thread_use
 
     def find_download_link(self, html):
         soup = BeautifulSoup(html.text, 'lxml')
@@ -157,11 +164,7 @@ class FileJoker():
               "down_direct":down_direct.attrs["value"]})
 
         if self.reach_download_limit(data.text):
-            if self.thread_use == 0:
-                thread_use = 1
-            else:
-                thread_use = self.thread_use+1
-            print("\033[1K\033[{}A\r\033[K{}\r".format(2*thread_use, "You have reached your download limit. " +
+            print("\033[1K\033[{}B\r\033[K{}\r".format(self.fix_thread_pos()-(int(self.thread)+2), "You have reached your download limit. " +
                                                           "You can't download any more files right now. Try again later"))
             #sys.exit()
             return None
@@ -170,8 +173,8 @@ class FileJoker():
         try:
             soup = BeautifulSoup(data.text, 'lxml')
         except Exception:
-            print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream".format(2*self.thread_use))
-            print("\033[2K\033[{}A\r\033[KTrying to find the link in another way".format(2))
+            print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream".format(self.fix_thread_pos()-(int(self.thread)+3)))
+            print("\033[2K\033[{}A\r\033[KTrying to find the link in another way".format(self.fix_thread_pos()-(int(self.thread)+4)))
             return None
 
         '''if link is None:
@@ -237,6 +240,7 @@ def stop_process_pool(executor):
 def main(thread, email, pwd, links, names, file, save_path, count_total, counts):
     '''for e, url in zip(counts, links):
         FileJoker(email, pwd, url, names, file, save_path, thread, count_total, e)'''
+    
     with concurrent.futures.ProcessPoolExecutor(max_workers=int(thread)) as executor:
         try:
             for future in concurrent.futures.as_completed([executor.submit(FileJoker, email, pwd, 
