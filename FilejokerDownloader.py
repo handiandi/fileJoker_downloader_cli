@@ -48,7 +48,6 @@ class FileJoker():
            pass
 
     def Process_executor(self, url):
-        time.sleep(int(self.thread))
         count = self.count
         url_id = url[url.rfind('/')+1:]
         source = self.s.get(url)
@@ -59,7 +58,7 @@ class FileJoker():
         self.link = self.find_download_link(source)
 
         if self.link is None:
-            print("\033[2K\033[{}A\r\033[KCouldn't find the download-link for {}\r".format(self.fix_thread_pos()-(int(self.thread)), url))
+            print("\033[K\033[{}Couldn't find the download-link for {}".format(self.fix_thread_pos(int(self.thread)), url))
             return True
 
         try:
@@ -69,7 +68,7 @@ class FileJoker():
         new_filename = None
         if url in self.names:
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
-        new_filename_text = "\033[2K\033[{}B\r\033[K(renamed to '{}')".format(1*self.fix_thread_pos(), new_filename) \
+        new_filename_text = "\033[2K\033[{}\r\033[K(renamed to '{}')".format(self.fix_thread_pos(), new_filename) \
             if new_filename else ""
         que_text = " - ({} of {} files in que)".format(count+1, self.count_total) \
             if len(self.urls) > 1 else ""
@@ -140,12 +139,12 @@ class FileJoker():
             return True
         return False
 
-    def fix_thread_pos(self):
+    def fix_thread_pos(self, number=0):
         if self.thread_use == 0:
-            thread_use = 1
+            thread_use = srt(1+number)+"B"
             return thread_use
         else:
-            thread_use = self.thread_use+1
+            thread_use = str(self.thread_use+1+number)+"A"
             return thread_use
 
     def find_download_link(self, html):
@@ -166,7 +165,7 @@ class FileJoker():
                                                                                  "method_premium":str(method_premium.attrs["value"]),
                                                                                  "down_direct":str(down_direct.attrs["value"])})
         if self.reach_download_limit(data.text):
-            print("\033[1K\033[{}B\r\033[K{}\r".format(self.fix_thread_pos()-(int(self.thread)+2), "You have reached your download limit. " +
+            print("\033[1K\033[{}\r\033[K{}\r".format(self.fix_thread_pos(), "You have reached your download limit. " +
                                                           "You can't download any more files right now. Try again later"))
             #sys.exit()
             return None
@@ -178,8 +177,8 @@ class FileJoker():
             download.attrs["href"]
         except Exception:
             try:
-                print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream\033[0K".format(self.fix_thread_pos()-(int(self.thread)+2)))
-                print("\033[2K\033[{}A\r\033[KTrying to find the link in another way\033[0K".format(self.fix_thread_pos()-(int(self.thread)+2)))
+                print("\033[2K\033[{}\r\033[KCouldn't find download link. Probably it's a file you can stream\033[0K".format(self.fix_thread_pos()))
+                print("\033[2K\033[{}\r\033[KTrying to find the link in another way\033[0K".format(self.fix_thread_pos()))
                 soup = BeautifulSoup(data.text, 'lxml')
                 submit = soup.find('form', attrs={"name":u"F1"})
                 op = soup.find('input', attrs={"name":u"op"})
@@ -196,7 +195,7 @@ class FileJoker():
                                    "method_premium":method_premium.attrs["value"],
                                    "down_direct":down_direct.attrs["value"]})
                 if self.reach_download_limit(data.text):
-                    print("\033[2K\033[{}A\r\033[K{}".format(self.fix_thread_pos()-(int(self.thread)+2), "\nYou have reached your download limit. " +
+                    print("\033[2K\033[{}\r\033[K{}".format(self.fix_thread_pos(), "\nYou have reached your download limit. " +
                                                                 "You can't download any more files right now. Try again later"))
                     return None
                 soup = BeautifulSoup(data.text, 'lxml')
@@ -273,7 +272,7 @@ def main(thread, email, pwd, links, names, file, save_path, count_total, counts)
             future = [executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e) for e, url in zip(counts, links)]
             try:
                 if ("<__main__.FileJoker" not in future.result()):
-                    print(future.result())
+                    future.result()
             except (TypeError, AttributeError):
                 pass
         except concurrent.futures.process.BrokenProcessPool:
