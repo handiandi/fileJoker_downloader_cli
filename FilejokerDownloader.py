@@ -344,8 +344,3 @@ if __name__ == '__main__':
          args.pwd, links, names, 
          args.file, save_path, 
          count_total, counts)
-
-    ####                                                            ####
-    ##  if you are idea for resolve Multi line print your are welcome ##
-    ##                          - vBlackOut -         ;)              ##
-    ###                                                             ####
