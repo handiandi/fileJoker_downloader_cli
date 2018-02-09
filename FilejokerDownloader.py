@@ -48,6 +48,7 @@ class FileJoker():
            print("stop")
 
     def Process_executor(self, url):
+        time.sleep(int(self.thread))
         count = self.count
         url_id = url[url.rfind('/')+1:]
         source = self.s.get(url)
@@ -156,7 +157,11 @@ class FileJoker():
               "down_direct":down_direct.attrs["value"]})
 
         if self.reach_download_limit(data.text):
-            print("\033[1K\033[{}A\r\033[K{}\r".format(2, "You have reached your download limit. " +
+            if self.thread_use == 0:
+                thread_use = 1
+            else:
+                thread_use = self.thread_use+1
+            print("\033[1K\033[{}A\r\033[K{}\r".format(2*thread_use, "You have reached your download limit. " +
                                                           "You can't download any more files right now. Try again later"))
             #sys.exit()
             return None
@@ -165,7 +170,7 @@ class FileJoker():
         try:
             soup = BeautifulSoup(data.text, 'lxml')
         except Exception:
-            print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream".format(2))
+            print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream".format(2*self.thread_use))
             print("\033[2K\033[{}A\r\033[KTrying to find the link in another way".format(2))
             return None
 
