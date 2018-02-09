@@ -45,7 +45,7 @@ class FileJoker():
 
         # for don't break the loop force return
         if process is False:
-           print("stop")
+           pass
 
     def Process_executor(self, url):
         time.sleep(int(self.thread)+2)
@@ -57,11 +57,16 @@ class FileJoker():
             sys.exit(-1)
             #return False
         self.link = self.find_download_link(source)
-        
-        if self.link is None:
-            print("\033[2K\033[{}A\r\033[KCouldn't find the download-link for {}\r".format(self.thread, url))
 
-        self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
+        if self.link is None:
+            print("\033[2K\033[{}A\r\033[KCouldn't find the download-link for {}\r".format(self.fix_thread_pos()-(int(self.thread)), url))
+            return True
+
+        try:
+            self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
+        except:
+            return False
+        print("\033[1K\033[10B\r"+str(self.filename))
         new_filename = None
         if url in self.names:
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
@@ -72,8 +77,8 @@ class FileJoker():
     
         print("\033[1K\033[{}B\rDownloading file '{}' {} [{}]{}".format(
               2*self.fix_thread_pos(),self.filename, new_filename_text, url_id, que_text))
-
-        self.download(self.s, self.link, self.filename, self.path)
+        
+        self.download(self.link, self.filename, self.path)
 
         if new_filename:
             os.rename(self.path+self.filename, self.path+new_filename)
@@ -96,8 +101,8 @@ class FileJoker():
                      'redirect': ''})
         return s
 
-    def download(self, session, url, filename, path):
-        r = session.get(url, stream=True)
+    def download(self, url, filename, path):
+        r = self.s.get(url, stream=True)
         total_length = r.headers.get('content-length')
         total_length = int(total_length)
         dl = 0
@@ -108,14 +113,14 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\033[1K\033[%dA\033[K\r[%s%s] - %d of %d MB (%d%%)" %
-                                          (2*self.fix_thread_pos()),
+                        sys.stdout.write("\033[2K\033[%dA\033[K\r[%s%s] - %d of %d MB (%d%%)" %
+                                          (self.fix_thread_pos()+int(self.thread)),
                                          ('=' * done, ' ' * (50-done),
                                           int(dl/1024/1024),
                                           int(total_length/1024/1024),
                                           done*2))
                         sys.stdout.flush()
-        print("\033[1K\033[<{}>B\033[K".format(2*self.fix_thread_pos()))
+        print("\033[2K\033[<{}>A\033[K".format(self.fix_thread_pos()+int(self.thread)))
         sys.stdout.write("\n")
 
     def delete_id_from_file(self, file, fj_id):
@@ -147,6 +152,7 @@ class FileJoker():
             return thread_use
 
     def find_download_link(self, html):
+        time.sleep(1)
         soup = BeautifulSoup(html.text, 'lxml')
         submit = soup.find('form', attrs={"name":u"F1"})
         op = soup.find('input', attrs={"name":u"op"})
@@ -155,14 +161,13 @@ class FileJoker():
         referer = soup.find('input', attrs={"name":u"referer"})
         method_premium = soup.find('input', attrs={"name":u"method_premium"})
         down_direct = soup.find('input', attrs={"name":u"down_direct"})
-
-        data = self.s.post("https://filejoker.net"+submit.attrs["action"], data={"op":op.attrs["value"],
-              "id":ids.attrs["value"],
-              "rand":rand.attrs["value"],
-              "referer":referer.attrs["value"],
-              "method_premium":method_premium.attrs["value"],
-              "down_direct":down_direct.attrs["value"]})
-
+        print()
+        data = self.s.post("https://filejoker.net"+str(submit.attrs["action"]), data={"op":str(op.attrs["value"]),
+                                                                                 "id":str(ids.attrs["value"]),
+                                                                                 "rand":str(rand.attrs["value"]),
+                                                                                 "referer":str(referer.attrs["value"]),
+                                                                                 "method_premium":str(method_premium.attrs["value"]),
+                                                                                 "down_direct":str(down_direct.attrs["value"])})
         if self.reach_download_limit(data.text):
             print("\033[1K\033[{}B\r\033[K{}\r".format(self.fix_thread_pos()-(int(self.thread)+2), "You have reached your download limit. " +
                                                           "You can't download any more files right now. Try again later"))
@@ -172,10 +177,36 @@ class FileJoker():
         link = None
         try:
             soup = BeautifulSoup(data.text, 'lxml')
+            download = soup.find("a", attrs={"class":"btn btn-green"})
+            download.attrs["href"]
         except Exception:
-            print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream".format(self.fix_thread_pos()-(int(self.thread)+3)))
-            print("\033[2K\033[{}A\r\033[KTrying to find the link in another way".format(self.fix_thread_pos()-(int(self.thread)+4)))
-            return None
+            try:
+                print("\033[2K\033[{}A\r\033[KCouldn't find download link. Probably it's a file you can stream\033[0K".format(self.fix_thread_pos()-(int(self.thread)+2)))
+                print("\033[2K\033[{}A\r\033[KTrying to find the link in another way\033[0K".format(self.fix_thread_pos()-(int(self.thread)+2)))
+                soup = BeautifulSoup(data.text, 'lxml')
+                submit = soup.find('form', attrs={"name":u"F1"})
+                op = soup.find('input', attrs={"name":u"op"})
+                ids = soup.find('input', attrs={"name":u"id"})
+                rand = soup.find('input', attrs={"name":u"rand"})
+                referer = soup.find('input', attrs={"name":u"referer"})
+                method_premium = soup.find('input', attrs={"name":u"method_premium"})
+                down_direct = soup.find('input', attrs={"name":u"down_direct"})
+
+                data = self.s.post("https://filejoker.net"+submit.attrs["action"], data={"op":op.attrs["value"],
+                                   "id":ids.attrs["value"],
+                                   "rand":rand.attrs["value"],
+                                   "referer":referer.attrs["value"],
+                                   "method_premium":method_premium.attrs["value"],
+                                   "down_direct":down_direct.attrs["value"]})
+                if self.reach_download_limit(data.text):
+                    print("\033[2K\033[{}A\r\033[K{}".format(self.fix_thread_pos()-(int(self.thread)+2), "\nYou have reached your download limit. " +
+                                                                "You can't download any more files right now. Try again later"))
+                    return None
+                soup = BeautifulSoup(data.text, 'lxml')
+                download = soup.find("a", attrs={"class":"btn btn-green"})
+                download.attrs["href"]
+            except Exception:
+                return None
 
         '''if link is None:
             try:
@@ -183,7 +214,7 @@ class FileJoker():
                     By.XPATH, '//*[@id="main"]/center/a')  # When streaming video
             except Exception:
                 return None'''
-        return soup.find("a", attrs={"class":"btn btn-green"}).attrs["href"]
+        return download.attrs["href"]
 
     def find_size_of_file(self, html):
         soup = BeautifulSoup(html, 'lxml')
@@ -245,12 +276,15 @@ def main(thread, email, pwd, links, names, file, save_path, count_total, counts)
             for future in concurrent.futures.as_completed([executor.submit(FileJoker, email, pwd, 
                                                                            url, names, file, save_path,
                                                                            thread, count_total, e) \
-                                                                           for e, url in zip(counts, links)],
-                                                                                             timeout=100):
-                print(future.result(timeout=100))
-        except concurrent.futures._base.TimeoutError:
-            print("This took to long...")
-            stop_process_pool(executor)
+                                                                           for e, url in zip(counts, links)]):
+                try:
+                    if ("<__main__.FileJoker" not in future.result()):
+                        print(future.result())
+                except TypeError:
+                    pass
+        #except concurrent.futures._base.TimeoutError:
+        #    print("This took to long...")
+        #    stop_process_pool(executor)
         except concurrent.futures.process.BrokenProcessPool:
             pass
 
