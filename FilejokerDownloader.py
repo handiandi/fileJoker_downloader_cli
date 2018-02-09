@@ -270,15 +270,12 @@ def main(thread, email, pwd, links, names, file, save_path, count_total, counts)
     
     with concurrent.futures.ProcessPoolExecutor(max_workers=int(thread)) as executor:
         try:
-            for future in concurrent.futures.as_completed([executor.submit(FileJoker, email, pwd, 
-                                                                           url, names, file, save_path,
-                                                                           thread, count_total, e) \
-                                                                           for e, url in zip(counts, links)]):
-                try:
-                    if ("<__main__.FileJoker" not in future.result()):
-                        print(future.result())
-                except TypeError:
-                    pass
+            future = [executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e) for e, url in zip(counts, links)]
+            try:
+                if ("<__main__.FileJoker" not in future.result()):
+                    print(future.result())
+            except (TypeError, AttributeError):
+                pass
         #except concurrent.futures._base.TimeoutError:
         #    print("This took to long...")
         #    stop_process_pool(executor)
