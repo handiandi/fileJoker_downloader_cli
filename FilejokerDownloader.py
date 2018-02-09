@@ -48,7 +48,7 @@ class FileJoker():
            print("stop")
 
     def Process_executor(self, url):
-        time.sleep(int(self.thread))
+        time.sleep(int(self.thread)+2)
         count = self.count
         url_id = url[url.rfind('/')+1:]
         source = self.s.get(url)
@@ -108,8 +108,8 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\033[1K\033[{}A\033[K\r[%s%s] - %d of %d MB (%d%%)" %
-                                          2*self.fix_thread_pos(),
+                        sys.stdout.write("\033[1K\033[%dA\033[K\r[%s%s] - %d of %d MB (%d%%)" %
+                                          (2*self.fix_thread_pos()),
                                          ('=' * done, ' ' * (50-done),
                                           int(dl/1024/1024),
                                           int(total_length/1024/1024),
@@ -183,8 +183,7 @@ class FileJoker():
                     By.XPATH, '//*[@id="main"]/center/a')  # When streaming video
             except Exception:
                 return None'''
-
-        return soup.find("a", attrs={"class":"btn btn-green"}).attrs["value"]
+        return soup.find("a", attrs={"class":"btn btn-green"}).attrs["href"]
 
     def find_size_of_file(self, html):
         soup = BeautifulSoup(html, 'lxml')
