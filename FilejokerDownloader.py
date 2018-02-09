@@ -66,19 +66,18 @@ class FileJoker():
             self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
         except:
             return False
-        print("\033[1K\033[10B\r"+str(self.filename))
         new_filename = None
         if url in self.names:
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
-        new_filename_text = "\033[2K\033[{}B\r\033[K(renamed to '{}')".format(2*self.fix_thread_pos(), new_filename) \
+        new_filename_text = "\033[2K\033[{}B\r\033[K(renamed to '{}')".format(1*self.fix_thread_pos(), new_filename) \
             if new_filename else ""
         que_text = " - ({} of {} files in que)".format(count+1, self.count_total) \
             if len(self.urls) > 1 else ""
     
-        print("\033[1K\033[{}B\rDownloading file '{}' {} [{}]{}".format(
-              2*self.fix_thread_pos(),self.filename, new_filename_text, url_id, que_text))
+        #print("\033[1K\033[{}B\rDownloading file '{}' {} [{}]{}".format(
+        #      1*self.fix_thread_pos(),self.filename, new_filename_text, url_id, que_text))
         
-        self.download(self.link, self.filename, self.path)
+        self.download(self.link, self.filename, self.path, url_id)
 
         if new_filename:
             os.rename(self.path+self.filename, self.path+new_filename)
@@ -101,7 +100,7 @@ class FileJoker():
                      'redirect': ''})
         return s
 
-    def download(self, url, filename, path):
+    def download(self, url, filename, path, url_id):
         r = self.s.get(url, stream=True)
         total_length = r.headers.get('content-length')
         total_length = int(total_length)
@@ -113,7 +112,7 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\033[2K\033[K\r[%s%s] - %d of %d MB (%d%%)" %
+                        sys.stdout.write("\033[3K  File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
                                          ('=' * done, ' ' * (50-done),
                                          int(dl/1024/1024),
                                          int(total_length/1024/1024),
