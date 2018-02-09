@@ -48,7 +48,7 @@ class FileJoker():
            pass
 
     def Process_executor(self, url):
-        time.sleep(int(self.thread)+2)
+        time.sleep(int(self.thread))
         count = self.count
         url_id = url[url.rfind('/')+1:]
         source = self.s.get(url)
