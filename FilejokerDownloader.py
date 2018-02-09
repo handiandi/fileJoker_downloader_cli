@@ -276,9 +276,6 @@ def main(thread, email, pwd, links, names, file, save_path, count_total, counts)
                     print(future.result())
             except (TypeError, AttributeError):
                 pass
-        #except concurrent.futures._base.TimeoutError:
-        #    print("This took to long...")
-        #    stop_process_pool(executor)
         except concurrent.futures.process.BrokenProcessPool:
             pass
 
