@@ -83,10 +83,10 @@ class FileJoker():
         if new_filename:
             os.rename(self.path+self.filename, self.path+new_filename)
 
-        if(file_w_urls):
+        if(self.file_w_urls):
             p = mp.Process(name="deleteID+"+str(count),
-                           target=delete_id_from_file,
-                           args=(file_w_urls, url_id))
+                           target=self.delete_id_from_file,
+                           args=(self.file_w_urls, url_id))
             p.start()
         self.count = self.count+1
         return True
@@ -113,14 +113,12 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\033[2K\033[%dA\033[K\r[%s%s] - %d of %d MB (%d%%)" %
-                                          (self.fix_thread_pos()+int(self.thread)),
+                        sys.stdout.write("\033[2K\033[K\r[%s%s] - %d of %d MB (%d%%)" %
                                          ('=' * done, ' ' * (50-done),
-                                          int(dl/1024/1024),
-                                          int(total_length/1024/1024),
-                                          done*2))
+                                         int(dl/1024/1024),
+                                         int(total_length/1024/1024),
+                                         done*2))
                         sys.stdout.flush()
-        print("\033[2K\033[<{}>A\033[K".format(self.fix_thread_pos()+int(self.thread)))
         sys.stdout.write("\n")
 
     def delete_id_from_file(self, file, fj_id):
