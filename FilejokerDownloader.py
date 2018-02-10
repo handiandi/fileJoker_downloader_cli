@@ -59,7 +59,7 @@ class FileJoker():
         self.link = self.find_download_link(source)
 
         if self.link is None:
-            print("\033[K\033[{}Couldn't find the download-link for {}".format(self.fix_thread_pos(self.thread_use), url))
+            print("\033[{}{}{}\033[F".format(self.fix_thread_pos(self.thread_use-(int(self.thread)), "A"), " Couldn't find the download-link for ", url))
             return True
 
         try:
@@ -69,7 +69,7 @@ class FileJoker():
         new_filename = None
         if url in self.names:
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
-        new_filename_text = "\033[2K\033[{}\r\033[K(renamed to '{}')".format(self.fix_thread_pos(self.thread_use), new_filename) \
+        new_filename_text = "\033[2K\033[{}\r\033[K(renamed to '{}')".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), new_filename) \
             if new_filename else ""
         que_text = " - ({} of {} files in que)".format(count+1, self.count_total) \
             if len(self.urls) > 1 else ""
@@ -112,7 +112,7 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write(self.fix_thread_pos(self.thread_use)+"\033[K  File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
+                        sys.stdout.write(self.fix_thread_pos(self.thread_use+2, "B")+"\033[K  File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
                                          ('=' * done, ' ' * (50-done),
                                          int(dl/1024/1024),
                                          int(total_length/1024/1024),
@@ -149,15 +149,15 @@ class FileJoker():
                     thread_use = str(1+number)+force
             else:
                 if force == None:
-                    thread_use = str(1+number)+"A"
+                    thread_use = str(1-number)+"A"
                 else:
-                    thread_use = str(1+number)+force
+                    thread_use = str(1-number)+force
             return thread_use
         else:
             if force == None:
-                thread_use = str(self.thread_use+1+number)+"A"
+                thread_use = str(self.thread_use+1-number)+"A"
             else:
-                thread_use = str(self.thread_use+1+number)+force
+                thread_use = str(self.thread_use+1-number)+force
             return thread_use
 
     def find_download_link(self, html):
@@ -177,7 +177,7 @@ class FileJoker():
                                                                                  "method_premium":str(method_premium.attrs["value"]),
                                                                                  "down_direct":str(down_direct.attrs["value"])})
         if self.reach_download_limit(data.text):
-            print("\033[1K\033[{}\r\033[K{}\r".format(self.fix_thread_pos(self.thread_use-1, "A"), " You have reached your download limit. " +
+            print("\033[{}{}\033[K".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
                                                           "You can't download any more files right now. Try again later"))
             #sys.exit()
             return None
@@ -189,8 +189,8 @@ class FileJoker():
             download.attrs["href"]
         except Exception:
             try:
-                print("\033[2K\033[{}\r\033[KCouldn't find download link. Probably it's a file you can stream\033[0K".format(self.fix_thread_pos(self.thread_use-1, "A")))
-                print("\033[2K\033[{}\r\033[KTrying to find the link in another way".format(self.fix_thread_pos(self.thread_use-1, "A")))
+                print("\033[{}{}\033[K".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " Couldn't find download link. Probably it's a file you can stream"))
+                print("\033[{}{}\033[K".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " Trying to find the link in another way"))
                 soup = BeautifulSoup(data.text, 'lxml')
                 submit = soup.find('form', attrs={"name":u"F1"})
                 op = soup.find('input', attrs={"name":u"op"})
@@ -207,7 +207,7 @@ class FileJoker():
                                    "method_premium":method_premium.attrs["value"],
                                    "down_direct":down_direct.attrs["value"]})
                 if self.reach_download_limit(data.text):
-                    print("\033[2K\033[{}\r\033[K{}".format(self.fix_thread_pos(self.thread_use-1, "A"), " You have reached your download limit. " +
+                    print("\033[{}{}\033[K".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
                                                                 "You can't download any more files right now. Try again later"))
                     return None
                 soup = BeautifulSoup(data.text, 'lxml')
