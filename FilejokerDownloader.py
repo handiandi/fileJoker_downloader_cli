@@ -112,7 +112,7 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write(self.fix_thread_pos(self.thread_use+2, "B")+"\033[K  File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
+                        sys.stdout.write("\033["+self.fix_thread_pos(100-(int(self.thread)), "A")+"\033[K  File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
                                          ('=' * done, ' ' * (50-done),
                                          int(dl/1024/1024),
                                          int(total_length/1024/1024),
@@ -291,6 +291,7 @@ def main(thread, email, pwd, links, names, file, save_path, count_total, counts)
     '''for e, url in zip(counts, links):
         FileJoker(email, pwd, url, names, file, save_path, thread, count_total, e)'''
     one_thread = detect_one_thread(counts, links, 0)
+    print("\033[H\033[J") # begin clear all console
     with concurrent.futures.ProcessPoolExecutor(max_workers=int(thread)) as executor:
         try:
             future = [executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e, one_thread) for e, url in zip(counts, links)]
@@ -301,6 +302,7 @@ def main(thread, email, pwd, links, names, file, save_path, count_total, counts)
                 pass
         except concurrent.futures.process.BrokenProcessPool:
             pass
+    print()
 
 if __name__ == '__main__':
     arg_parser = ArgumentParser(description='CLI for premium download for FileJoker.net',
