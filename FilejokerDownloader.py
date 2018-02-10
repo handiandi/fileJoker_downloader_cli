@@ -59,7 +59,7 @@ class FileJoker():
         self.link = self.find_download_link(source)
 
         if self.link is None:
-            print("\033[{}{}{}\033[F".format(self.fix_thread_pos(self.thread_use-(int(self.thread)), "A"), " Couldn't find the download-link for ", url))
+            print("\033[{}\033[K{}{}\033[F".format(self.fix_thread_pos(self.thread_use-(int(self.thread)), "A"), " Couldn't find the download-link for ", url))
             return True
 
         try:
@@ -112,7 +112,7 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\033["+self.fix_thread_pos(100-(int(self.thread)), "A")+"\033[K  File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
+                        sys.stdout.write("\033["+self.fix_thread_pos(100-(int(self.thread)), "A")+"\033[K File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
                                          ('=' * done, ' ' * (50-done),
                                          int(dl/1024/1024),
                                          int(total_length/1024/1024),
