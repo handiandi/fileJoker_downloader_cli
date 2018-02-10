@@ -112,7 +112,7 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\033["+self.fix_thread_pos(100-(int(self.thread)), "A")+"\033[K File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
+                        sys.stdout.write("\033["+self.fix_thread_pos(100-(int(self.thread)), "A")+"\033[K  File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
                                          ('=' * done, ' ' * (50-done),
                                          int(dl/1024/1024),
                                          int(total_length/1024/1024),
@@ -177,7 +177,7 @@ class FileJoker():
                                                                                  "method_premium":str(method_premium.attrs["value"]),
                                                                                  "down_direct":str(down_direct.attrs["value"])})
         if self.reach_download_limit(data.text):
-            print("\033[{}{}\033[K".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
+            print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
                                                           "You can't download any more files right now. Try again later"))
             #sys.exit()
             return None
@@ -189,8 +189,8 @@ class FileJoker():
             download.attrs["href"]
         except Exception:
             try:
-                print("\033[{}{}\033[K".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " Couldn't find download link. Probably it's a file you can stream"))
-                print("\033[{}{}\033[K".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " Trying to find the link in another way"))
+                print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " Couldn't find download link. Probably it's a file you can stream"))
+                print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " Trying to find the link in another way"))
                 soup = BeautifulSoup(data.text, 'lxml')
                 submit = soup.find('form', attrs={"name":u"F1"})
                 op = soup.find('input', attrs={"name":u"op"})
@@ -207,7 +207,7 @@ class FileJoker():
                                    "method_premium":method_premium.attrs["value"],
                                    "down_direct":down_direct.attrs["value"]})
                 if self.reach_download_limit(data.text):
-                    print("\033[{}{}\033[K".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
+                    print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
                                                                 "You can't download any more files right now. Try again later"))
                     return None
                 soup = BeautifulSoup(data.text, 'lxml')
