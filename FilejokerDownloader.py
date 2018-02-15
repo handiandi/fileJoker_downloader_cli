@@ -112,13 +112,12 @@ class FileJoker():
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\033["+self.fix_thread_pos(100-(int(self.thread)), "A")+"\033[K  File:'"+filename+"' ["+url_id+"]"+"\r[%s%s] - %d of %d MB (%d%%)" %
+                        print("\033["+self.fix_thread_pos(self.thread_use, "A")+"\033[K File:'"+filename+"' ["+url_id+"]"+" [%s%s] - %d of %d MB (%d%%)\033[K" %
                                          ('=' * done, ' ' * (50-done),
                                          int(dl/1024/1024),
                                          int(total_length/1024/1024),
                                          done*2))
-                        sys.stdout.flush()
-        sys.stdout.write("\n")
+        print("\n")
 
     def delete_id_from_file(self, file, fj_id):
         lines = []
