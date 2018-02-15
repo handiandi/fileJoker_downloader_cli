@@ -88,6 +88,10 @@ class FileJoker():
                            args=(self.file_w_urls, url_id))
             p.start()
         self.count = self.count+1
+
+        if (self.count) == self.count_total:
+            print()
+
         return True
 
     def login_requests(self, email, pwd):
@@ -117,7 +121,6 @@ class FileJoker():
                                          int(dl/1024/1024),
                                          int(total_length/1024/1024),
                                          done*2))
-        print("\n")
 
     def delete_id_from_file(self, file, fj_id):
         lines = []
