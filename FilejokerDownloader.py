@@ -116,27 +116,26 @@ class FileJoker():
 
     def download(self, url, filename, path, url_id):
         r = self.s.get(url, stream=True)
-        total_length = r.headers.get('content-length')
-        total_length = int(total_length)
+        total_length = int(r.headers.get('content-length'))
         dl = 0
 
         if r.status_code == 200:
             text = "File: {} [{}]".format(filename, url_id)
             pbar = tqdm.tqdm(total=total_length,
-                             initial=0,
+                             initial=dl,
                              unit='B', unit_scale=True,
                              desc=text)
 
             with open(path+filename, 'wb') as f:
                 for chunk in r.iter_content(1024):
                     if chunk:
-                        dl += len(chunk)
+                        # dl += len(chunk)
                         f.write(chunk)
-                        done = int(50 * dl / total_length)
+                        # done = int(50 * dl / total_length)
                         pbar.update(1024)
             pbar.close()
-                        #progresser(thread_use, int(dl/1024/1024), int(total_length/1024/1024))
-                        #print("\033["+self.fix_thread_pos(self.thread_use, "A")+"\033[K File:'"+filename+"' ["+url_id+"]"+" [%s%s] - %d of %d MB (%d%%)\033[K" %
+                        # progresser(thread_use, int(dl/1024/1024), int(total_length/1024/1024))
+                        # print("\033["+self.fix_thread_pos(self.thread_use, "A")+"\033[K File:'"+filename+"' ["+url_id+"]"+" [%s%s] - %d of %d MB (%d%%)\033[K" %
                         #                 ('=' * done, ' ' * (50-done),
                         #                 int(dl/1024/1024),
                         #                 int(total_length/1024/1024),
