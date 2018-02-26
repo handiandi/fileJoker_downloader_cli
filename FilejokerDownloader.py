@@ -4,7 +4,8 @@ from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
 from bs4 import BeautifulSoup
 import multiprocessing as mp
-import concurrent.futures
+from concurrent import futures
+import tqdm
 import sys
 import os
 import ctypes
@@ -13,6 +14,7 @@ import requests
 import urllib.request
 import re
 import time
+import functools
 
 def read_file(file):
     links = []
@@ -29,47 +31,55 @@ def read_file(file):
         links.append(result[0].strip())
     return list(set(links)), names
 
+def call_backend(n, total, to_do, lineexec):
+    try:
+        if "Couldn't find the download-link for" in lineexec.result() or "Not enough disk space" in lineexec.result() or "Detect size error" in lineexec.result():
+            print(lineexec.result())
+    except:
+        pass
+
 class FileJoker():
 
-    def __init__(self, email, pwd, urls, names, file_w_urls, path, thread, count_total, thread_use, one_thread):
+    def __init__(self, email, pwd, urls, names, file_w_urls, path, thread, count_total, one_thread):
         self.s = self.login_requests(email, pwd)
         self.urls = urls
         self.path = path
         self.names = names
         self.thread = thread
         self.count = 0
+        self.one_thread = one_thread
         self.file_w_urls = file_w_urls
         self.count_total = count_total
-        self.thread_use = thread_use
-        self.one_thread = one_thread
-        process = self.Process_executor(urls)
 
-        # for don't break the loop force return
-        if process is False:
-           pass
-
-    def Process_executor(self, url):
+    def Process_executor(self, url, thread_use):
         count = self.count
         url_id = url[url.rfind('/')+1:]
         source = self.s.get(url)
-        if not self.check_for_free_disk_space(self.path, self.find_size_of_file(source.text)):
-            print("\033[2K\r\033[KNot enough disk space")
-            sys.exit(-1)
-            #return False
+        check_size_disk = self.check_for_free_disk_space(self.path, self.find_size_of_file(source.text))
+        try:
+            if not check_size_disk:
+                #print("\033[2K\r\033[KNot enough disk space")
+                #sys.exit(-1)
+                return "Not enough disk space"
+        except:
+            if "Detect size" in check_size_disk:
+                return "Detect size error"
+
         self.link = self.find_download_link(source)
 
         if self.link is None:
-            print("\033[{}\033[K{}{}\033[F".format(self.fix_thread_pos(self.thread_use-(int(self.thread)), "A"), " Couldn't find the download-link for ", url))
-            return True
+            return "Couldn't find the download-link for {}".format(url)
+            #return False
 
         try:
             self.filename = urllib.request.unquote(self.link[self.link.rfind("/")+1:])
         except:
-            return False
+            return "Couldn't find the download-link for {}".format(url)
+
         new_filename = None
         if url in self.names:
             new_filename = self.names[url]+self.filename[self.filename.rfind('.'):].strip()
-        new_filename_text = "\033[2K\033[{}\r\033[K(renamed to '{}')".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), new_filename) \
+        new_filename_text = "\033[2K\033[{}\r\033[K(renamed to '{}')".format(self.fix_thread_pos(thread_use-(int(self.thread)-1)), new_filename) \
             if new_filename else ""
         que_text = " - ({} of {} files in que)".format(count+1, self.count_total) \
             if len(self.urls) > 1 else ""
@@ -90,9 +100,9 @@ class FileJoker():
         self.count = self.count+1
 
         if (self.count) == self.count_total:
-            print()
-
-        return True
+            pass
+            #print()
+        #return True
 
     def login_requests(self, email, pwd):
         s = requests.Session()
@@ -109,18 +119,28 @@ class FileJoker():
         total_length = r.headers.get('content-length')
         total_length = int(total_length)
         dl = 0
+
         if r.status_code == 200:
+            text = "File: {} [{}]".format(filename, url_id)
+            pbar = tqdm.tqdm(total=total_length,
+                             initial=0,
+                             unit='B', unit_scale=True,
+                             desc=text)
+
             with open(path+filename, 'wb') as f:
                 for chunk in r.iter_content(1024):
                     if chunk:
                         dl += len(chunk)
                         f.write(chunk)
                         done = int(50 * dl / total_length)
-                        print("\033["+self.fix_thread_pos(self.thread_use, "A")+"\033[K File:'"+filename+"' ["+url_id+"]"+" [%s%s] - %d of %d MB (%d%%)\033[K" %
-                                         ('=' * done, ' ' * (50-done),
-                                         int(dl/1024/1024),
-                                         int(total_length/1024/1024),
-                                         done*2))
+                        pbar.update(1024)
+            pbar.close()
+                        #progresser(thread_use, int(dl/1024/1024), int(total_length/1024/1024))
+                        #print("\033["+self.fix_thread_pos(self.thread_use, "A")+"\033[K File:'"+filename+"' ["+url_id+"]"+" [%s%s] - %d of %d MB (%d%%)\033[K" %
+                        #                 ('=' * done, ' ' * (50-done),
+                        #                 int(dl/1024/1024),
+                        #                 int(total_length/1024/1024),
+                        #                 done*2))
 
     def delete_id_from_file(self, file, fj_id):
         lines = []
@@ -142,8 +162,8 @@ class FileJoker():
             return True
         return False
 
-    def fix_thread_pos(self, number=0, force=None):
-        if self.thread_use == 0:
+    def fix_thread_pos(self, thread_use, number=0, force=None):
+        if thread_use == 0:
             if self.one_thread is True:
                 if force == None:
                     thread_use = str(1+number)+"B"
@@ -171,7 +191,7 @@ class FileJoker():
         referer = soup.find('input', attrs={"name":u"referer"})
         method_premium = soup.find('input', attrs={"name":u"method_premium"})
         down_direct = soup.find('input', attrs={"name":u"down_direct"})
-        print()
+        #print()
         data = self.s.post("https://filejoker.net"+str(submit.attrs["action"]), data={"op":str(op.attrs["value"]),
                                                                                  "id":str(ids.attrs["value"]),
                                                                                  "rand":str(rand.attrs["value"]),
@@ -179,8 +199,8 @@ class FileJoker():
                                                                                  "method_premium":str(method_premium.attrs["value"]),
                                                                                  "down_direct":str(down_direct.attrs["value"])})
         if self.reach_download_limit(data.text):
-            print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
-                                                          "You can't download any more files right now. Try again later"))
+            #print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
+            #                                              "You can't download any more files right now. Try again later"))
             #sys.exit()
             return None
         
@@ -191,8 +211,10 @@ class FileJoker():
             download.attrs["href"]
         except Exception:
             try:
-                print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " Couldn't find download link. Probably it's a file you can stream"))
-                print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " Trying to find the link in another way"))
+                #print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)),
+                #	                           " Couldn't find download link. Probably it's a file you can stream"))
+                #print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)),
+                #	                           " Trying to find the link in another way"))
                 soup = BeautifulSoup(data.text, 'lxml')
                 submit = soup.find('form', attrs={"name":u"F1"})
                 op = soup.find('input', attrs={"name":u"op"})
@@ -209,8 +231,7 @@ class FileJoker():
                                    "method_premium":method_premium.attrs["value"],
                                    "down_direct":down_direct.attrs["value"]})
                 if self.reach_download_limit(data.text):
-                    print("\033[{}\033[K{}".format(self.fix_thread_pos(self.thread_use-(int(self.thread)-1)), " You have reached your download limit. " +
-                                                                "You can't download any more files right now. Try again later"))
+                    print(" You have reached your download limit. You can't download any more files right now. Try again later")
                     return None
                 soup = BeautifulSoup(data.text, 'lxml')
                 download = soup.find("a", attrs={"class":"btn btn-green"})
@@ -227,15 +248,20 @@ class FileJoker():
         return download.attrs["href"]
 
     def find_size_of_file(self, html):
-        soup = BeautifulSoup(html, 'lxml')
-        file_size_text = soup.find('small').text
-        size = defaultdict(dict)
-        size['size'] = float(file_size_text[1:file_size_text.rfind(' ')].strip())
-        size['size_value'] = file_size_text[file_size_text.rfind(' ')+1:-1].strip()
-        return size
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            file_size_text = soup.find('small').text
+            size = defaultdict(dict)
+            size['size'] = float(file_size_text[1:file_size_text.rfind(' ')].strip())
+            size['size_value'] = file_size_text[file_size_text.rfind(' ')+1:-1].strip()
+            return size
+        except:
+            return 0
 
     def check_for_free_disk_space(self, path, size, ratio=0.6):
         totalAvailSpace = None
+        if size == 0:
+            return "Detect size error"
         if platform.system() == 'Windows':
             free_bytes = ctypes.c_ulonglong(0)
             ctypes.windll.kernel32.GetDiskFreeSpaceExW(
@@ -283,28 +309,32 @@ def detect_one_thread(lists_1, lists_2, number_search):
     else:
         return False
 
+def start_s(start, url, e, i, total):
+    process = start.Process_executor(url, e)
+    return process
 
 def stop_process_pool(executor):
     for pid, processes in executor._processes.items():
         processes.terminate()
     executor.shutdown()
 
+
 def main(thread, email, pwd, links, names, file, save_path, count_total, counts):
     '''for e, url in zip(counts, links):
-        FileJoker(email, pwd, url, names, file, save_path, thread, count_total, e)'''
-    one_thread = detect_one_thread(counts, links, 0)
+    FileJoker(email, pwd, url, names, file, save_path, thread, count_total, e)'''
     print("\033[H\033[J") # begin clear all console
-    with concurrent.futures.ProcessPoolExecutor(max_workers=int(thread)) as executor:
-        try:
-            future = [executor.submit(FileJoker, email, pwd, url, names, file, save_path, thread, count_total, e, one_thread) for e, url in zip(counts, links)]
-            try:
-                if ("<__main__.FileJoker" not in future.result()):
-                    future.result()
-            except (TypeError, AttributeError):
-                pass
-        except concurrent.futures.process.BrokenProcessPool:
-            pass
+    one_thread = detect_one_thread(counts, links, 0)
+    start = FileJoker(email, pwd, links, names, file, save_path, thread, count_total, one_thread)
+    with futures.ThreadPoolExecutor(int(thread)) as executor:
+        # res = executor.map(download_one, sorted(image_lists))
+        to_do = []
+        results = []
+        for i, (url, e) in enumerate(zip(sorted(links), counts)):
+            line_exec = executor.submit(start_s, start, url, e, i, len(links))
+            line_exec.add_done_callback(lambda r: call_backend(1, len(links), i, r))
     print()
+    return len(results)
+
 
 if __name__ == '__main__':
     arg_parser = ArgumentParser(description='CLI for premium download for FileJoker.net',
