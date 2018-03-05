@@ -46,6 +46,7 @@ In the example above, the following is happening:
 ## Dependencies
 - Requests
 - BeautifullSoup
+- tqdm
 
 
 ## Issues and to-do
